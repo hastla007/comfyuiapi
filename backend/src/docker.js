@@ -68,7 +68,7 @@ async function ensureNetwork() {
     return true;
   } catch (error) {
     console.error(`Error ensuring network ${networkName}:`, error.message);
-    return false;
+    throw new Error(`Failed to ensure Docker network: ${error.message}`);
   }
 }
 
@@ -88,10 +88,36 @@ async function getContainer(containerId) {
 }
 
 /**
+ * Check if Docker image exists
+ */
+async function ensureImage(imageName) {
+  try {
+    await docker.getImage(imageName).inspect();
+    console.log(`Docker image ${imageName} found`);
+    return true;
+  } catch (error) {
+    if (error.statusCode === 404) {
+      throw new Error(`Docker image ${imageName} not found. Please build or pull the image first.`);
+    }
+    throw new Error(`Failed to check Docker image: ${error.message}`);
+  }
+}
+
+/**
  * Create a new ComfyUI container
  */
 async function createContainer(config) {
   const { name, port, workflowPath, instanceId, enableGpu = true } = config;
+
+  // Validate required configuration
+  if (!instanceId || !port) {
+    throw new Error('instanceId and port are required for container creation');
+  }
+
+  const imageName = process.env.COMFYUI_IMAGE || 'comfyuiapi-comfyui:latest';
+
+  // Ensure image exists before creating container
+  await ensureImage(imageName);
 
   // Ensure network exists before creating container
   await ensureNetwork();
@@ -100,7 +126,7 @@ async function createContainer(config) {
   const volumeBase = process.env.VOLUME_BASE || '/app';
 
   const containerConfig = {
-    Image: process.env.COMFYUI_IMAGE || 'comfyuiapi-comfyui:latest',
+    Image: imageName,
     name: `comfyui-instance-${instanceId}`,
     ExposedPorts: {
       '8188/tcp': {}
@@ -140,23 +166,59 @@ async function createContainer(config) {
     ];
   }
 
-  const container = await docker.createContainer(containerConfig);
-  return container;
+  try {
+    console.log(`Creating container: comfyui-instance-${instanceId} on port ${port}`);
+    const container = await docker.createContainer(containerConfig);
+
+    // Verify container was created and has an ID
+    if (!container || !container.id) {
+      throw new Error('Container creation returned invalid container object');
+    }
+
+    console.log(`Container created successfully with ID: ${container.id}`);
+    return container;
+  } catch (error) {
+    console.error('Error creating container:', error);
+    // Provide more specific error messages
+    if (error.message && error.message.includes('port is already allocated')) {
+      throw new Error(`Port ${port} is already in use by another container`);
+    }
+    if (error.message && error.message.includes('No such image')) {
+      throw new Error(`Docker image ${imageName} not found`);
+    }
+    throw new Error(`Failed to create container: ${error.message}`);
+  }
 }
 
 /**
  * Start a container
  */
 async function startContainer(containerId) {
+  if (!containerId) {
+    throw new Error('Container ID is required');
+  }
+
   const container = docker.getContainer(containerId);
   try {
+    console.log(`Starting container ${containerId}`);
     await container.start();
-    return await container.inspect();
+    const info = await container.inspect();
+    console.log(`Container ${containerId} started successfully`);
+    return info;
   } catch (error) {
+    console.error(`Error starting container ${containerId}:`, error.message);
     if (error.statusCode === 404) {
-      throw new Error('Container not found');
+      throw new Error(`Container not found: ${containerId}`);
     }
-    throw error;
+    if (error.statusCode === 304) {
+      // Container is already started
+      console.log(`Container ${containerId} is already running`);
+      return await container.inspect();
+    }
+    if (error.message && error.message.includes('OCI runtime create failed')) {
+      throw new Error(`Failed to start container: ${error.message}. Check Docker logs for details.`);
+    }
+    throw new Error(`Failed to start container: ${error.message}`);
   }
 }
 
@@ -249,6 +311,7 @@ module.exports = {
   docker,
   testDockerConnection,
   ensureNetwork,
+  ensureImage,
   getAllContainers,
   getContainer,
   createContainer,
