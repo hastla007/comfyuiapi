@@ -11,6 +11,7 @@ function SystemInfoPage() {
   const [history, setHistory] = useState([]);
   const [loading, setLoading] = useState(true);
   const [autoRefresh, setAutoRefresh] = useState(true);
+  const [error, setError] = useState('');
 
   useEffect(() => {
     fetchSystemInfo();
@@ -31,6 +32,7 @@ function SystemInfoPage() {
       if (metricsRes.data.success) {
         const newMetrics = metricsRes.data.metrics;
         setMetrics(newMetrics);
+        setError('');
 
         // Update history for charts
         setHistory(prev => {
@@ -52,6 +54,7 @@ function SystemInfoPage() {
       }
     } catch (error) {
       console.error('Error fetching system info:', error);
+      setError('Unable to load system information. Check API connectivity and CORS settings.');
     } finally {
       setLoading(false);
     }
@@ -121,6 +124,7 @@ function SystemInfoPage() {
         <div className="loading">Loading system info...</div>
       ) : (
         <>
+          {error && <div className="error-banner">{error}</div>}
           {/* Docker Desktop Warning */}
           {metrics.system?.dockerDesktop && (
             <div className="docker-desktop-notice">
