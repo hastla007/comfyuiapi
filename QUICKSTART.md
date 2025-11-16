@@ -49,11 +49,26 @@ mkdir -p models/checkpoints models/vae models/loras
 # Place .safetensors or .ckpt files in models/checkpoints/
 ```
 
-### 3. Start the System
+### 3. Build the ComfyUI Image
+
+**IMPORTANT**: Before starting the system, you must build the ComfyUI Docker image:
 
 ```bash
-# Build and start all services (this may take 5-10 minutes first time)
-docker-compose up -d --build
+# Option A: Using the build script (recommended)
+chmod +x build-comfyui-image.sh
+./build-comfyui-image.sh
+
+# Option B: Using Docker Compose directly
+docker compose build comfyui-1
+```
+
+This step takes 5-15 minutes the first time. See [BUILD.md](BUILD.md) for detailed instructions.
+
+### 4. Start the System
+
+```bash
+# Start all services
+docker compose up -d
 
 # Watch the logs
 docker-compose logs -f
@@ -65,7 +80,7 @@ Wait for messages indicating services are ready:
 
 Press `Ctrl+C` to stop watching logs (services continue running).
 
-### 4. Access the Interface
+### 5. Access the Interface
 
 Open your browser and go to:
 
@@ -73,7 +88,7 @@ Open your browser and go to:
 
 You should see the ComfyUI Manager dashboard!
 
-### 5. Test Your First Container
+### 6. Test Your First Container
 
 The docker-compose file includes two pre-configured containers:
 
@@ -82,7 +97,7 @@ The docker-compose file includes two pre-configured containers:
 
 Both should load the ComfyUI interface.
 
-### 6. Create a New Container
+### 7. Create a New Container
 
 In the web interface at http://localhost:8080:
 
