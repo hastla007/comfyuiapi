@@ -100,7 +100,7 @@ function ContainerList({ containers, workflows, loading, onStart, onStop, onRest
               {container.status?.toLowerCase() === 'running' ? (
                 <>
                   <a
-                    href={`http://localhost:${container.port}`}
+                    href={`http://${window.location.hostname}:${container.port}`}
                     target="_blank"
                     rel="noopener noreferrer"
                     className="btn btn-primary"

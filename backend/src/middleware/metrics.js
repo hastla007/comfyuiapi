@@ -1,5 +1,6 @@
 const client = require('prom-client');
 const os = require('os');
+const { execSync } = require('child_process');
 
 // Create a Registry
 const register = new client.Registry();
@@ -80,6 +81,42 @@ const metricsMiddleware = (req, res, next) => {
   next();
 };
 
+// Helper function to get disk usage
+const getDiskUsage = () => {
+  try {
+    // Use df command to get disk usage of root filesystem
+    // -BK gives output in kilobytes, which we'll convert to bytes
+    const output = execSync('df -BK / | tail -n 1').toString();
+    const parts = output.split(/\s+/);
+
+    // df output format: Filesystem 1K-blocks Used Available Use% Mounted
+    // With -BK flag: parts[1]=total, parts[2]=used, parts[3]=available
+    const totalKB = parseInt(parts[1].replace('K', ''));
+    const usedKB = parseInt(parts[2].replace('K', ''));
+    const availableKB = parseInt(parts[3].replace('K', ''));
+
+    const total = totalKB * 1024; // Convert to bytes
+    const used = usedKB * 1024;
+    const free = availableKB * 1024;
+    const usagePercent = (used / total) * 100;
+
+    return {
+      total,
+      used,
+      free,
+      usagePercent
+    };
+  } catch (error) {
+    // If df command fails, return zeros
+    return {
+      total: 0,
+      used: 0,
+      free: 0,
+      usagePercent: 0
+    };
+  }
+};
+
 // System metrics collection
 const getSystemMetrics = () => {
   const cpus = os.cpus();
@@ -109,14 +146,7 @@ const getSystemMetrics = () => {
       free: freeMem,
       usagePercent: (usedMem / totalMem) * 100
     },
-    disk: {
-      // Note: Getting accurate disk usage in Node.js requires external libraries
-      // This is a placeholder - in production, consider using 'diskusage' package
-      total: 0,
-      used: 0,
-      free: 0,
-      usagePercent: 0
-    },
+    disk: getDiskUsage(),
     system: {
       platform: os.platform(),
       uptime: os.uptime(),

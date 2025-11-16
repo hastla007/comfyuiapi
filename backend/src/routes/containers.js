@@ -47,8 +47,9 @@ router.get('/', async (req, res) => {
 
 /**
  * POST /api/containers - Create a new container
+ * Public endpoint - no authentication required for frontend access
  */
-router.post('/', authenticateApiKey, async (req, res) => {
+router.post('/', async (req, res) => {
   let containerId = null;
 
   try {
@@ -231,8 +232,9 @@ router.post('/', authenticateApiKey, async (req, res) => {
 
 /**
  * POST /api/containers/:id/start - Start a container
+ * Public endpoint - no authentication required for frontend access
  */
-router.post('/:id/start', authenticateApiKey, async (req, res) => {
+router.post('/:id/start', async (req, res) => {
   try {
     const { id } = req.params;
     await startContainer(id);
@@ -249,8 +251,9 @@ router.post('/:id/start', authenticateApiKey, async (req, res) => {
 
 /**
  * POST /api/containers/:id/stop - Stop a container
+ * Public endpoint - no authentication required for frontend access
  */
-router.post('/:id/stop', authenticateApiKey, async (req, res) => {
+router.post('/:id/stop', async (req, res) => {
   try {
     const { id } = req.params;
     await stopContainer(id);
@@ -267,8 +270,9 @@ router.post('/:id/stop', authenticateApiKey, async (req, res) => {
 
 /**
  * POST /api/containers/:id/restart - Restart a container
+ * Public endpoint - no authentication required for frontend access
  */
-router.post('/:id/restart', authenticateApiKey, async (req, res) => {
+router.post('/:id/restart', async (req, res) => {
   try {
     const { id } = req.params;
     await restartContainer(id);
