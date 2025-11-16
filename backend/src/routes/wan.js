@@ -2,6 +2,7 @@ const express = require('express');
 const router = express.Router();
 const { createJob } = require('../services/jobService');
 const { authenticateApiKey } = require('../middleware/auth');
+const { validateBase64Fields } = require('../utils/validation');
 
 // Apply authentication middleware to all WAN routes
 router.use(authenticateApiKey);
@@ -130,6 +131,18 @@ router.post('/2.2/text-to-video-turbo', async (req, res) => {
 router.post('/2.2/image-to-video-turbo', async (req, res) => {
   try {
     const { image_url, image_base64, prompt, resolution, aspect_ratio, duration, seed, workflow_id, callback_url } = req.body;
+
+    // Validate base64 size (max 20MB for images)
+    const base64Validation = validateBase64Fields(req.body, ['image_base64'], 20);
+    if (!base64Validation.valid) {
+      return res.status(400).json({
+        success: false,
+        error: {
+          code: 'invalid_request',
+          message: base64Validation.errors.join('; ')
+        }
+      });
+    }
 
     // Validation
     if (!image_url && !image_base64) {
@@ -287,6 +300,18 @@ router.post('/2.5/text-to-video', async (req, res) => {
 router.post('/2.5/image-to-video', async (req, res) => {
   try {
     const { image_url, image_base64, prompt, resolution, aspect_ratio, duration, fps, seed, audio_sync, workflow_id, callback_url } = req.body;
+
+    // Validate base64 size (max 20MB for images)
+    const base64Validation = validateBase64Fields(req.body, ['image_base64'], 20);
+    if (!base64Validation.valid) {
+      return res.status(400).json({
+        success: false,
+        error: {
+          code: 'invalid_request',
+          message: base64Validation.errors.join('; ')
+        }
+      });
+    }
 
     // Validation
     if (!image_url && !image_base64) {

@@ -2,9 +2,30 @@ const { pool } = require('../database');
 const { triggerWebhook } = require('./webhookService');
 
 /**
+ * Valid model names
+ */
+const VALID_MODELS = [
+  'wan-2.2-text-to-video-turbo',
+  'wan-2.2-image-to-video-turbo',
+  'wan-2.5-text-to-video',
+  'wan-2.5-image-to-video',
+  'infinitetalk',
+  'infinitetalk-fast',
+  'infinitetalk-multi',
+  'infinitetalk-fast-multi',
+  'infinitetalk-video-to-video',
+  'infinitetalk-fast-video-to-video'
+];
+
+/**
  * Create a new job
  */
 async function createJob(userId, model, requestPayload, workflowId = null, callbackUrl = null) {
+  // Validate model name
+  if (!VALID_MODELS.includes(model)) {
+    throw new Error(`Invalid model name: ${model}. Must be one of: ${VALID_MODELS.join(', ')}`);
+  }
+
   const result = await pool.query(
     `INSERT INTO jobs (user_id, model, request_payload, workflow_id, callback_url, status, expires_at)
      VALUES ($1, $2, $3, $4, $5, 'queued', NOW() + INTERVAL '48 hours')
@@ -312,6 +333,7 @@ async function listJobs(userId = null, options = {}) {
 
 /**
  * Get next queued job for processing
+ * Orders by priority (highest first), then by creation time (oldest first)
  */
 async function getNextQueuedJob() {
   const result = await pool.query(
@@ -321,7 +343,7 @@ async function getNextQueuedJob() {
        SELECT job_id
        FROM jobs
        WHERE status = 'queued'
-       ORDER BY created_at ASC
+       ORDER BY priority DESC, created_at ASC
        LIMIT 1
        FOR UPDATE SKIP LOCKED
      )

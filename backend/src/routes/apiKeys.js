@@ -155,31 +155,4 @@ router.delete('/:keyId', requireAdmin, async (req, res) => {
   }
 });
 
-/**
- * GET /api/admin/users - List all users
- */
-router.get('/users/list', requireAdmin, async (req, res) => {
-  try {
-    const result = await pool.query(
-      `SELECT id, email, name, credits, created_at
-       FROM users
-       ORDER BY created_at DESC`
-    );
-
-    res.json({
-      success: true,
-      users: result.rows
-    });
-  } catch (error) {
-    console.error('Error listing users:', error);
-    res.status(500).json({
-      success: false,
-      error: {
-        code: 'internal_error',
-        message: 'Failed to list users'
-      }
-    });
-  }
-});
-
 module.exports = router;
