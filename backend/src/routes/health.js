@@ -100,10 +100,12 @@ router.get('/metrics/custom', async (req, res) => {
   }
 });
 
-// Logs endpoint (last N logs)
-router.get('/logs', async (req, res) => {
+// Logs endpoint (last N logs) - Protected: requires admin authentication
+router.get('/logs', requireAdmin, async (req, res) => {
   try {
-    const limit = parseInt(req.query.limit) || 100;
+    // Validate and bound limit parameter to prevent DoS
+    const rawLimit = parseInt(req.query.limit, 10);
+    const limit = isNaN(rawLimit) ? 100 : Math.min(Math.max(rawLimit, 1), 1000);
     const level = req.query.level;
 
     const logDir = path.join(__dirname, '../../logs');

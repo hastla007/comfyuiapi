@@ -57,7 +57,88 @@ function validateBase64Fields(body, fields, maxSizeMB = 20) {
   };
 }
 
+/**
+ * Validate URL format and prevent SSRF attacks
+ * @param {string} urlString - The URL to validate
+ * @returns {boolean} - true if valid and safe, false otherwise
+ */
+function isValidUrl(urlString) {
+  if (!urlString || typeof urlString !== 'string') {
+    return false;
+  }
+
+  try {
+    const url = new URL(urlString);
+
+    // Only allow http and https protocols
+    if (!['http:', 'https:'].includes(url.protocol)) {
+      return false;
+    }
+
+    // Prevent access to private IP ranges and localhost
+    const hostname = url.hostname.toLowerCase();
+
+    // Block localhost and loopback addresses
+    const privateRanges = [
+      'localhost',
+      '127.0.0.1',
+      '0.0.0.0',
+      '169.254.169.254', // AWS metadata service
+      'metadata.google.internal', // GCP metadata
+      'fd00:ec2::254' // AWS IPv6 metadata
+    ];
+
+    if (privateRanges.includes(hostname)) {
+      return false;
+    }
+
+    // Check for IPv6 localhost separately
+    if (hostname === '[::1]' || hostname === '::1') {
+      return false;
+    }
+
+    // Block private IP ranges (10.0.0.0/8, 172.16.0.0/12, 192.168.0.0/16)
+    if (hostname.startsWith('10.') ||
+        hostname.startsWith('192.168.') ||
+        hostname.match(/^172\.(1[6-9]|2[0-9]|3[01])\./)) {
+      return false;
+    }
+
+    // Block link-local addresses (169.254.0.0/16)
+    if (hostname.startsWith('169.254.')) {
+      return false;
+    }
+
+    return true;
+  } catch {
+    return false;
+  }
+}
+
+/**
+ * Validate multiple URL fields in a request body
+ * @param {object} body - Request body
+ * @param {array} fields - Array of field names to validate
+ * @returns {object} - { valid: boolean, errors: array }
+ */
+function validateUrlFields(body, fields) {
+  const errors = [];
+
+  for (const field of fields) {
+    if (body[field] && !isValidUrl(body[field])) {
+      errors.push(`${field}: Invalid or unsafe URL`);
+    }
+  }
+
+  return {
+    valid: errors.length === 0,
+    errors
+  };
+}
+
 module.exports = {
   validateBase64Size,
-  validateBase64Fields
+  validateBase64Fields,
+  isValidUrl,
+  validateUrlFields
 };

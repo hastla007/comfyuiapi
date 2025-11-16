@@ -332,10 +332,19 @@ router.post('/:id/cancel', authenticateApiKey, async (req, res) => {
   try {
     const { id } = req.params;
 
+    // Validate ID is a safe integer
+    const jobId = parseInt(id, 10);
+    if (isNaN(jobId) || !Number.isSafeInteger(jobId) || jobId < 1) {
+      return res.status(400).json({
+        success: false,
+        error: 'Invalid job ID'
+      });
+    }
+
     // Check job exists and is cancellable
     const result = await pool.query(
       'SELECT id, status FROM jobs WHERE id = $1',
-      [id]
+      [jobId]
     );
 
     if (result.rows.length === 0) {
@@ -352,7 +361,7 @@ router.post('/:id/cancel', authenticateApiKey, async (req, res) => {
     }
 
     // Cancel the job
-    await jobProcessor.cancelJob(parseInt(id));
+    await jobProcessor.cancelJob(jobId);
 
     res.json({
       success: true,
@@ -360,7 +369,10 @@ router.post('/:id/cancel', authenticateApiKey, async (req, res) => {
     });
   } catch (error) {
     logger.error('Error cancelling job:', error);
-    res.status(500).json({ error: 'Failed to cancel job', details: error.message });
+    res.status(500).json({
+      success: false,
+      error: 'Failed to cancel job'
+    });
   }
 });
 
@@ -372,10 +384,19 @@ router.post('/:id/retry', authenticateApiKey, async (req, res) => {
   try {
     const { id } = req.params;
 
+    // Validate ID is a safe integer
+    const jobId = parseInt(id, 10);
+    if (isNaN(jobId) || !Number.isSafeInteger(jobId) || jobId < 1) {
+      return res.status(400).json({
+        success: false,
+        error: 'Invalid job ID'
+      });
+    }
+
     // Check job exists and is failed
     const result = await pool.query(
       'SELECT * FROM jobs WHERE id = $1',
-      [id]
+      [jobId]
     );
 
     if (result.rows.length === 0) {
@@ -401,7 +422,7 @@ router.post('/:id/retry', authenticateApiKey, async (req, res) => {
           progress = 0,
           updated_at = CURRENT_TIMESTAMP
       WHERE id = $1
-    `, [id]);
+    `, [jobId]);
 
     res.json({
       success: true,
@@ -409,7 +430,10 @@ router.post('/:id/retry', authenticateApiKey, async (req, res) => {
     });
   } catch (error) {
     logger.error('Error retrying job:', error);
-    res.status(500).json({ error: 'Failed to retry job', details: error.message });
+    res.status(500).json({
+      success: false,
+      error: 'Failed to retry job'
+    });
   }
 });
 
