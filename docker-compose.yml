@@ -1,0 +1,102 @@
+version: '3.8'
+
+services:
+  # Backend API for managing ComfyUI containers
+  api:
+    build: ./backend
+    container_name: comfyui-api
+    ports:
+      - "3000:3000"
+    volumes:
+      - /var/run/docker.sock:/var/run/docker.sock
+      - ./workflows:/app/workflows
+      - ./config:/app/config
+    environment:
+      - NODE_ENV=production
+      - DOCKER_HOST=unix:///var/run/docker.sock
+    networks:
+      - comfyui-network
+    restart: unless-stopped
+
+  # Frontend web interface
+  frontend:
+    build: ./frontend
+    container_name: comfyui-frontend
+    ports:
+      - "8080:80"
+    environment:
+      - API_URL=http://api:3000
+    networks:
+      - comfyui-network
+    depends_on:
+      - api
+    restart: unless-stopped
+
+  # Database for storing configurations
+  db:
+    image: postgres:15-alpine
+    container_name: comfyui-db
+    environment:
+      - POSTGRES_DB=comfyui
+      - POSTGRES_USER=comfyui
+      - POSTGRES_PASSWORD=comfyui_password
+    volumes:
+      - db-data:/var/lib/postgresql/data
+    networks:
+      - comfyui-network
+    restart: unless-stopped
+
+  # ComfyUI Instance 1 (template - can be scaled)
+  comfyui-1:
+    build: ./comfyui
+    container_name: comfyui-instance-1
+    ports:
+      - "8188:8188"
+    volumes:
+      - ./models:/app/models
+      - ./workflows/instance-1:/app/workflows
+      - ./output:/app/output
+    environment:
+      - NVIDIA_VISIBLE_DEVICES=all
+      - INSTANCE_ID=1
+    deploy:
+      resources:
+        reservations:
+          devices:
+            - driver: nvidia
+              count: 1
+              capabilities: [gpu]
+    networks:
+      - comfyui-network
+    restart: unless-stopped
+
+  # ComfyUI Instance 2
+  comfyui-2:
+    build: ./comfyui
+    container_name: comfyui-instance-2
+    ports:
+      - "8189:8188"
+    volumes:
+      - ./models:/app/models
+      - ./workflows/instance-2:/app/workflows
+      - ./output:/app/output
+    environment:
+      - NVIDIA_VISIBLE_DEVICES=all
+      - INSTANCE_ID=2
+    deploy:
+      resources:
+        reservations:
+          devices:
+            - driver: nvidia
+              count: 1
+              capabilities: [gpu]
+    networks:
+      - comfyui-network
+    restart: unless-stopped
+
+networks:
+  comfyui-network:
+    driver: bridge
+
+volumes:
+  db-data:
