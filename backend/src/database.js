@@ -8,13 +8,13 @@ const pool = new Pool({
   password: process.env.DB_PASSWORD,
 
   // Connection pool configuration
-  max: parseInt(process.env.DB_POOL_MAX) || 20, // Maximum number of clients in the pool
-  min: parseInt(process.env.DB_POOL_MIN) || 2, // Minimum number of clients in the pool
-  idleTimeoutMillis: parseInt(process.env.DB_IDLE_TIMEOUT) || 30000, // Close idle clients after 30 seconds
-  connectionTimeoutMillis: parseInt(process.env.DB_CONNECTION_TIMEOUT) || 10000, // Return error after 10 seconds if connection not established
+  max: parseInt(process.env.DB_POOL_MAX, 10) || 20, // Maximum number of clients in the pool
+  min: parseInt(process.env.DB_POOL_MIN, 10) || 2, // Minimum number of clients in the pool
+  idleTimeoutMillis: parseInt(process.env.DB_IDLE_TIMEOUT, 10) || 30000, // Close idle clients after 30 seconds
+  connectionTimeoutMillis: parseInt(process.env.DB_CONNECTION_TIMEOUT, 10) || 10000, // Return error after 10 seconds if connection not established
 
   // Statement timeout (prevent long-running queries)
-  statement_timeout: parseInt(process.env.DB_STATEMENT_TIMEOUT) || 60000, // 60 seconds
+  statement_timeout: parseInt(process.env.DB_STATEMENT_TIMEOUT, 10) || 60000, // 60 seconds
 });
 
 // Handle pool errors
@@ -78,6 +78,8 @@ async function initDatabase() {
         parameters JSONB,
         request_payload JSONB,
         callback_url TEXT,
+        callback_attempts INTEGER DEFAULT 0,
+        callback_last_attempt TIMESTAMP,
         input_image_url TEXT,
         output_image_url TEXT,
         result JSONB,

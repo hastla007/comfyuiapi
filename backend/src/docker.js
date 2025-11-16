@@ -1,9 +1,30 @@
 const Docker = require('dockerode');
 
 // Use DOCKER_HOST environment variable if available, otherwise default to unix socket
-const dockerConfig = process.env.DOCKER_HOST
-  ? { host: process.env.DOCKER_HOST }
-  : { socketPath: process.env.DOCKER_SOCKET || '/var/run/docker.sock' };
+let dockerConfig;
+
+if (process.env.DOCKER_HOST) {
+  // Validate DOCKER_HOST format (should be tcp://host:port or unix:///path/to/socket)
+  const dockerHost = process.env.DOCKER_HOST;
+  if (dockerHost.startsWith('tcp://')) {
+    const match = dockerHost.match(/^tcp:\/\/([^:]+):(\d+)$/);
+    if (!match) {
+      console.error('Invalid DOCKER_HOST format. Expected tcp://host:port');
+      process.exit(1);
+    }
+    dockerConfig = {
+      host: match[1],
+      port: parseInt(match[2], 10)
+    };
+  } else if (dockerHost.startsWith('unix://')) {
+    dockerConfig = { socketPath: dockerHost.replace('unix://', '') };
+  } else {
+    // Assume it's just a host
+    dockerConfig = { host: dockerHost };
+  }
+} else {
+  dockerConfig = { socketPath: process.env.DOCKER_SOCKET || '/var/run/docker.sock' };
+}
 
 const docker = new Docker(dockerConfig);
 

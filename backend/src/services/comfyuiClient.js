@@ -30,9 +30,12 @@ class ComfyUIClient extends EventEmitter {
       const wsUrl = `${this.baseUrl.replace('http', 'ws')}/ws?clientId=${this.clientId}`;
 
       this.ws = new WebSocket(wsUrl);
+      this.reconnectAttempts = this.reconnectAttempts || 0;
+      this.maxReconnectAttempts = 10;
 
       this.ws.on('open', () => {
         console.log(`WebSocket connected to ${wsUrl}`);
+        this.reconnectAttempts = 0; // Reset on successful connection
         resolve();
       });
 
@@ -53,8 +56,17 @@ class ComfyUIClient extends EventEmitter {
       this.ws.on('close', () => {
         console.log('WebSocket connection closed');
         this.emit('disconnected');
-        // Auto-reconnect after 5 seconds
-        setTimeout(() => this.connectWebSocket(), 5000);
+
+        // Auto-reconnect with exponential backoff, but limit attempts
+        if (this.reconnectAttempts < this.maxReconnectAttempts) {
+          this.reconnectAttempts++;
+          const backoffDelay = Math.min(1000 * Math.pow(2, this.reconnectAttempts), 30000); // Max 30s
+          console.log(`Reconnecting in ${backoffDelay}ms (attempt ${this.reconnectAttempts}/${this.maxReconnectAttempts})`);
+          setTimeout(() => this.connectWebSocket(), backoffDelay);
+        } else {
+          console.error('Max reconnection attempts reached. Will not reconnect.');
+          this.emit('max_reconnect_attempts_reached');
+        }
       });
     });
   }
