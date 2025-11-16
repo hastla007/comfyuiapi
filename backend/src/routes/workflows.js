@@ -51,6 +51,14 @@ router.post('/', async (req, res) => {
       return res.status(400).json({ success: false, error: 'Name and workflow JSON are required' });
     }
 
+    // Validate name length (max 255 characters for VARCHAR(255))
+    if (typeof name !== 'string' || name.length > 255) {
+      return res.status(400).json({
+        success: false,
+        error: 'Workflow name must be a string with max 255 characters'
+      });
+    }
+
     // Validate workflow JSON size (max 5MB)
     const jsonString = JSON.stringify(workflowJson);
     const jsonSizeBytes = Buffer.byteLength(jsonString, 'utf8');
@@ -99,6 +107,14 @@ router.put('/:id', async (req, res) => {
       return res.status(400).json({
         success: false,
         error: 'Name and workflow JSON are required'
+      });
+    }
+
+    // Validate name length (max 255 characters for VARCHAR(255))
+    if (typeof name !== 'string' || name.length > 255) {
+      return res.status(400).json({
+        success: false,
+        error: 'Workflow name must be a string with max 255 characters'
       });
     }
 

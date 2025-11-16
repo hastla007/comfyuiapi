@@ -84,48 +84,6 @@ async function scanAndImportWorkflows() {
   }
 }
 
-/**
- * Watch workflows directory for changes (optional feature)
- */
-async function watchWorkflowsDirectory() {
-  const workflowsDir = process.env.WORKFLOWS_DIR || '/app/workflows';
-
-  let importTimeout = null;
-  let isImporting = false;
-
-  try {
-    const watcher = fs.watch(workflowsDir);
-    console.log(`Watching workflows directory for changes: ${workflowsDir}`);
-
-    for await (const event of watcher) {
-      if (event.filename && event.filename.endsWith('.json')) {
-        console.log(`Detected change in workflows directory: ${event.filename}`);
-
-        // Clear existing timeout to implement debouncing
-        if (importTimeout) {
-          clearTimeout(importTimeout);
-        }
-
-        // Re-import workflows after a short delay to avoid multiple rapid imports
-        importTimeout = setTimeout(async () => {
-          // Prevent concurrent executions
-          if (!isImporting) {
-            isImporting = true;
-            try {
-              await scanAndImportWorkflows();
-            } finally {
-              isImporting = false;
-            }
-          }
-        }, 1000);
-      }
-    }
-  } catch (error) {
-    console.log('Workflow directory watching disabled:', error.message);
-  }
-}
-
 module.exports = {
-  scanAndImportWorkflows,
-  watchWorkflowsDirectory
+  scanAndImportWorkflows
 };

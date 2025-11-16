@@ -17,7 +17,14 @@ function CreateContainer({ onCreate, workflows }) {
       return;
     }
 
-    const success = await onCreate(formData);
+    // Convert port to number and workflowId to number or undefined
+    const containerData = {
+      name: formData.name,
+      port: parseInt(formData.port, 10),
+      workflowId: formData.workflowId ? parseInt(formData.workflowId, 10) : undefined
+    };
+
+    const success = await onCreate(containerData);
     if (success) {
       setFormData({ name: '', port: '', workflowId: '' });
       setShowForm(false);
