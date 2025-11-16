@@ -43,6 +43,40 @@ async function initDatabase() {
       )
     `);
 
+    // Create jobs table
+    await client.query(`
+      CREATE TABLE IF NOT EXISTS jobs (
+        id SERIAL PRIMARY KEY,
+        workflow_id INTEGER REFERENCES workflows(id),
+        container_id INTEGER REFERENCES containers(id),
+        status VARCHAR(50) NOT NULL DEFAULT 'queued',
+        priority INTEGER DEFAULT 0,
+        parameters JSONB NOT NULL,
+        input_image_url TEXT,
+        output_image_url TEXT,
+        comfyui_prompt_id VARCHAR(255),
+        error_message TEXT,
+        progress INTEGER DEFAULT 0,
+        created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+        updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+        started_at TIMESTAMP,
+        completed_at TIMESTAMP,
+        CHECK (status IN ('queued', 'processing', 'completed', 'failed', 'cancelled'))
+      )
+    `);
+
+    // Create index for faster job queue queries
+    await client.query(`
+      CREATE INDEX IF NOT EXISTS idx_jobs_status_priority
+      ON jobs(status, priority DESC, created_at ASC)
+    `);
+
+    // Create index for job lookup by comfyui_prompt_id
+    await client.query(`
+      CREATE INDEX IF NOT EXISTS idx_jobs_comfyui_prompt_id
+      ON jobs(comfyui_prompt_id)
+    `);
+
     console.log('Database initialized successfully');
   } catch (error) {
     console.error('Database initialization error:', error);

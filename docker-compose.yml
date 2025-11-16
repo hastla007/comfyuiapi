@@ -11,6 +11,8 @@ services:
       - /var/run/docker.sock:/var/run/docker.sock
       - ./workflows:/app/workflows
       - ./config:/app/config
+      - ./backend/logs:/app/logs
+      - ./output:/app/output
     env_file:
       - .env
     environment:
