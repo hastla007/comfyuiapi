@@ -1,8 +1,7 @@
 import React, { useState } from 'react';
 import axios from 'axios';
 import './WorkflowManager.css';
-
-const API_URL = process.env.REACT_APP_API_URL || '/api';
+import { API_URL } from '../config';
 
 function WorkflowManager({ workflows, onUpdate }) {
   const [showForm, setShowForm] = useState(false);

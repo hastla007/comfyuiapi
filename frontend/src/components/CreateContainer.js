@@ -17,6 +17,19 @@ function CreateContainer({ onCreate, workflows }) {
       return;
     }
 
+    // Validate container name format (Docker naming rules)
+    const namePattern = /^[a-zA-Z0-9][a-zA-Z0-9_.-]*$/;
+    if (!namePattern.test(formData.name)) {
+      alert('Container name must start with alphanumeric character and contain only alphanumeric, underscore, period, or hyphen');
+      return;
+    }
+
+    // Validate name length
+    if (formData.name.length < 1 || formData.name.length > 255) {
+      alert('Container name must be between 1 and 255 characters');
+      return;
+    }
+
     // Convert port to number and workflowId to number or undefined
     const containerData = {
       name: formData.name,

@@ -1,6 +1,11 @@
 const Docker = require('dockerode');
 
-const docker = new Docker({ socketPath: '/var/run/docker.sock' });
+// Use DOCKER_HOST environment variable if available, otherwise default to unix socket
+const dockerConfig = process.env.DOCKER_HOST
+  ? { host: process.env.DOCKER_HOST }
+  : { socketPath: process.env.DOCKER_SOCKET || '/var/run/docker.sock' };
+
+const docker = new Docker(dockerConfig);
 
 /**
  * Test Docker connection
