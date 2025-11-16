@@ -45,12 +45,22 @@ router.get('/', async (req, res) => {
  */
 router.post('/', async (req, res) => {
   const client = await pool.connect();
+  let containerId = null;
+
   try {
     const { name, port, workflowId } = req.body;
 
     // Validate input
     if (!name || !port) {
       return res.status(400).json({ success: false, error: 'Name and port are required' });
+    }
+
+    // Validate port range
+    if (port < 1024 || port > 65535) {
+      return res.status(400).json({
+        success: false,
+        error: 'Port must be between 1024-65535'
+      });
     }
 
     // Check if port is already in use
@@ -70,6 +80,7 @@ router.post('/', async (req, res) => {
       instanceId,
       workflowPath: `/app/workflows/instance-${instanceId}`
     });
+    containerId = container.id;
 
     // Save to database
     await client.query(
@@ -78,26 +89,47 @@ router.post('/', async (req, res) => {
     );
 
     // Start the container
-    await startContainer(container.id);
+    try {
+      await startContainer(container.id);
 
-    // Update status
-    await client.query(
-      'UPDATE containers SET status = $1, updated_at = CURRENT_TIMESTAMP WHERE container_id = $2',
-      ['running', container.id]
-    );
+      // Update status to running
+      await client.query(
+        'UPDATE containers SET status = $1, updated_at = CURRENT_TIMESTAMP WHERE container_id = $2',
+        ['running', container.id]
+      );
 
-    res.json({
-      success: true,
-      container: {
-        id: container.id,
-        name,
-        port,
-        instanceId,
-        status: 'running'
-      }
-    });
+      res.json({
+        success: true,
+        container: {
+          id: container.id,
+          name,
+          port,
+          instanceId,
+          status: 'running'
+        }
+      });
+    } catch (startError) {
+      // If start fails, update status to failed
+      await client.query(
+        'UPDATE containers SET status = $1, updated_at = CURRENT_TIMESTAMP WHERE container_id = $2',
+        ['failed', container.id]
+      );
+      throw startError;
+    }
   } catch (error) {
     console.error('Error creating container:', error);
+
+    // Rollback: remove container and DB entry on failure
+    if (containerId) {
+      try {
+        await removeContainer(containerId, true);
+        await client.query('DELETE FROM containers WHERE container_id = $1', [containerId]);
+        console.log(`Rolled back container ${containerId} due to error`);
+      } catch (rollbackError) {
+        console.error('Error during rollback:', rollbackError);
+      }
+    }
+
     res.status(500).json({ success: false, error: error.message });
   } finally {
     client.release();

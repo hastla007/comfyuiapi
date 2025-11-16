@@ -3,6 +3,21 @@ const Docker = require('dockerode');
 const docker = new Docker({ socketPath: '/var/run/docker.sock' });
 
 /**
+ * Test Docker connection
+ */
+async function testDockerConnection() {
+  try {
+    await docker.ping();
+    console.log('Docker connection successful');
+    return true;
+  } catch (error) {
+    console.error('Cannot connect to Docker:', error.message);
+    console.error('Please ensure Docker is running and the socket is accessible');
+    return false;
+  }
+}
+
+/**
  * Get all ComfyUI containers
  */
 async function getAllContainers() {
@@ -21,10 +36,13 @@ async function getContainer(containerId) {
  * Create a new ComfyUI container
  */
 async function createContainer(config) {
-  const { name, port, workflowPath, instanceId } = config;
+  const { name, port, workflowPath, instanceId, enableGpu = true } = config;
+
+  // Use environment variable for volume base path, fallback to /app for production
+  const volumeBase = process.env.VOLUME_BASE || '/app';
 
   const containerConfig = {
-    Image: 'comfyuiapi-comfyui:latest',
+    Image: process.env.COMFYUI_IMAGE || 'comfyuiapi-comfyui:latest',
     name: `comfyui-instance-${instanceId}`,
     ExposedPorts: {
       '8188/tcp': {}
@@ -34,16 +52,9 @@ async function createContainer(config) {
         '8188/tcp': [{ HostPort: String(port) }]
       },
       Binds: [
-        `${process.cwd()}/models:/app/models`,
-        `${process.cwd()}/workflows/instance-${instanceId}:/app/workflows`,
-        `${process.cwd()}/output:/app/output`
-      ],
-      DeviceRequests: [
-        {
-          Driver: 'nvidia',
-          Count: -1,
-          Capabilities: [['gpu']]
-        }
+        `${volumeBase}/models:/app/models`,
+        `${volumeBase}/workflows/instance-${instanceId}:/app/workflows`,
+        `${volumeBase}/output:/app/output`
       ],
       RestartPolicy: {
         Name: 'unless-stopped'
@@ -55,10 +66,21 @@ async function createContainer(config) {
     ],
     NetworkingConfig: {
       EndpointsConfig: {
-        'comfyuiapi_comfyui-network': {}
+        'comfyui-network': {}
       }
     }
   };
+
+  // Only add GPU device requests if enabled
+  if (enableGpu) {
+    containerConfig.HostConfig.DeviceRequests = [
+      {
+        Driver: 'nvidia',
+        Count: -1,
+        Capabilities: [['gpu']]
+      }
+    ];
+  }
 
   const container = await docker.createContainer(containerConfig);
   return container;
@@ -123,6 +145,7 @@ async function getContainerStats(containerId) {
 
 module.exports = {
   docker,
+  testDockerConnection,
   getAllContainers,
   getContainer,
   createContainer,
