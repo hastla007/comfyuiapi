@@ -40,8 +40,18 @@ const corsOptions = (req, callback) => {
   return callback(new Error('Not allowed by CORS'));
 };
 
+const buildSocketCorsOptions = () => {
+  const allowedOrigins = getAllowedOrigins();
+  return {
+    origin: allowedOrigins.includes('*') ? '*' : allowedOrigins,
+    credentials: true
+  };
+};
+
 module.exports = {
   corsMiddleware: cors(corsOptions),
+  corsOptions,
+  buildSocketCorsOptions,
   getAllowedOrigins,
   isOriginAllowed,
   parseOrigins
