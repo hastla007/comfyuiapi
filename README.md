@@ -130,6 +130,29 @@ You can download models from:
 - [Hugging Face](https://huggingface.co/)
 - [ComfyUI Model Repository](https://comfyanonymous.github.io/ComfyUI_examples/)
 
+### 5. Build the ComfyUI Docker Image
+
+Before starting the application, you need to build the ComfyUI Docker image:
+
+**Option A: Using the build script (recommended)**
+```bash
+# Make the script executable (first time only)
+chmod +x build-comfyui-image.sh
+
+# Run the build script
+./build-comfyui-image.sh
+```
+
+**Option B: Using Docker Compose directly**
+```bash
+# Build the ComfyUI image
+docker compose build comfyui-1
+```
+
+For detailed build instructions and troubleshooting, see [BUILD.md](BUILD.md).
+
+**Note**: The first build takes 5-15 minutes as it downloads CUDA toolkit, Python, PyTorch, and ComfyUI.
+
 ## Usage
 
 ### Start the Application
