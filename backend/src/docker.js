@@ -22,7 +22,7 @@ async function testDockerConnection() {
  */
 async function getAllContainers() {
   const containers = await docker.listContainers({ all: true });
-  return containers.filter(c => c.Names.some(name => name.includes('comfyui-instance')));
+  return containers.filter(c => c.Names && c.Names.some(name => name.includes('comfyui-instance')));
 }
 
 /**
@@ -100,7 +100,7 @@ async function startContainer(containerId) {
  */
 async function stopContainer(containerId) {
   const container = docker.getContainer(containerId);
-  await container.stop();
+  await container.stop({ t: 10 });
   return await container.inspect();
 }
 
@@ -118,7 +118,7 @@ async function restartContainer(containerId) {
  */
 async function removeContainer(containerId, force = false) {
   const container = docker.getContainer(containerId);
-  await container.remove({ force });
+  await container.remove({ force, v: true });
 }
 
 /**

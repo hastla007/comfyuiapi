@@ -26,6 +26,13 @@ function WorkflowManager({ workflows, onUpdate }) {
   const handleFileUpload = (e) => {
     const file = e.target.files[0];
     if (file) {
+      // Validate file size (max 10MB)
+      if (file.size > 10 * 1024 * 1024) {
+        setError('File size must be less than 10MB');
+        e.target.value = ''; // Reset file input
+        return;
+      }
+
       const reader = new FileReader();
       reader.onload = (event) => {
         try {
@@ -38,6 +45,10 @@ function WorkflowManager({ workflows, onUpdate }) {
         } catch (err) {
           setError('Invalid JSON file');
         }
+      };
+      reader.onerror = () => {
+        setError('Failed to read file');
+        e.target.value = ''; // Reset file input
       };
       reader.readAsText(file);
     }

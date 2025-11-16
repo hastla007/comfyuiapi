@@ -27,7 +27,7 @@ router.get('/', async (req, res) => {
       const dbContainer = dbContainers.rows.find(dbc => dbc.container_id === dc.Id);
       return {
         id: dc.Id,
-        name: dc.Names[0].replace('/', ''),
+        name: (dc.Names && dc.Names[0]) ? dc.Names[0].replace('/', '') : 'unknown',
         status: dc.State,
         ports: dc.Ports,
         created: dc.Created,
@@ -229,7 +229,8 @@ router.get('/:id/logs', async (req, res) => {
   try {
     const { id } = req.params;
     const { tail = 100 } = req.query;
-    const logs = await getContainerLogs(id, parseInt(tail));
+    const tailNum = parseInt(tail, 10);
+    const logs = await getContainerLogs(id, isNaN(tailNum) ? 100 : tailNum);
     res.json({ success: true, logs });
   } catch (error) {
     console.error('Error getting logs:', error);
