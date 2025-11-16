@@ -1,0 +1,228 @@
+.system-info-page {
+  max-width: 1400px;
+  margin: 0 auto;
+}
+
+.system-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 2rem;
+}
+
+.system-header h2 {
+  margin: 0;
+  color: #333;
+  font-size: 1.75rem;
+}
+
+.system-controls {
+  display: flex;
+  gap: 0.75rem;
+  align-items: center;
+}
+
+.health-section,
+.metrics-section,
+.charts-section,
+.info-section {
+  margin-bottom: 2rem;
+}
+
+.health-section h3,
+.metrics-section h3,
+.charts-section h3,
+.info-section h3 {
+  margin: 0 0 1rem 0;
+  color: #333;
+  font-size: 1.3rem;
+}
+
+.health-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
+  gap: 1.5rem;
+}
+
+.health-card {
+  background: white;
+  padding: 1.5rem;
+  border-radius: 8px;
+  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+  display: flex;
+  align-items: center;
+  gap: 1rem;
+}
+
+.health-card svg {
+  color: #667eea;
+}
+
+.health-label {
+  font-weight: 600;
+  color: #333;
+  margin-bottom: 0.5rem;
+}
+
+.health-badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.5rem;
+  padding: 0.25rem 0.75rem;
+  border-radius: 12px;
+  font-size: 0.9rem;
+  font-weight: 500;
+}
+
+.health-badge.healthy {
+  background: rgba(76, 175, 80, 0.1);
+  color: #4caf50;
+}
+
+.health-badge.unhealthy {
+  background: rgba(220, 53, 69, 0.1);
+  color: #dc3545;
+}
+
+.metrics-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
+  gap: 1.5rem;
+}
+
+.metric-card {
+  background: white;
+  padding: 1.5rem;
+  border-radius: 8px;
+  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+}
+
+.metric-header {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+  margin-bottom: 1rem;
+}
+
+.metric-icon {
+  color: #667eea;
+}
+
+.metric-icon.cpu {
+  color: #667eea;
+}
+
+.metric-icon.memory {
+  color: #764ba2;
+}
+
+.metric-icon.disk {
+  color: #ffc107;
+}
+
+.metric-title {
+  font-weight: 600;
+  color: #333;
+  font-size: 1.1rem;
+}
+
+.metric-value {
+  font-size: 2.5rem;
+  font-weight: bold;
+  margin-bottom: 0.5rem;
+}
+
+.metric-value.normal {
+  color: #4caf50;
+}
+
+.metric-value.warning {
+  color: #ffc107;
+}
+
+.metric-value.critical {
+  color: #dc3545;
+}
+
+.metric-bar {
+  height: 8px;
+  background: #e0e0e0;
+  border-radius: 4px;
+  overflow: hidden;
+  margin-bottom: 0.75rem;
+}
+
+.metric-fill {
+  height: 100%;
+  transition: width 0.3s ease;
+}
+
+.metric-fill.normal {
+  background: linear-gradient(90deg, #4caf50, #66bb6a);
+}
+
+.metric-fill.warning {
+  background: linear-gradient(90deg, #ffc107, #ffca28);
+}
+
+.metric-fill.critical {
+  background: linear-gradient(90deg, #dc3545, #e4606d);
+}
+
+.metric-details {
+  color: #666;
+  font-size: 0.9rem;
+}
+
+.chart-container {
+  background: white;
+  padding: 1.5rem;
+  border-radius: 8px;
+  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+}
+
+.no-data {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  height: 300px;
+  color: #888;
+}
+
+.info-grid {
+  background: white;
+  padding: 1.5rem;
+  border-radius: 8px;
+  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
+  gap: 1.5rem;
+}
+
+.info-item {
+  display: flex;
+  justify-content: space-between;
+  padding: 0.75rem 0;
+  border-bottom: 1px solid #eee;
+}
+
+.info-item:last-child {
+  border-bottom: none;
+}
+
+.info-label {
+  font-weight: 600;
+  color: #666;
+}
+
+.info-value {
+  color: #333;
+  font-family: monospace;
+}
+
+.loading {
+  text-align: center;
+  padding: 3rem;
+  color: #888;
+  font-size: 1.1rem;
+}
