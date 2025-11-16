@@ -62,6 +62,14 @@ app.use('/api/workflows', workflowRoutes);
 app.use('/api/jobs', jobRoutes);
 app.use('/api/media', mediaRoutes);
 
+// API v1 Routes (kie.ai compatible)
+app.use('/api/v1/jobs', jobRoutes);
+app.use('/api/v1/wan', wanRoutes);
+app.use('/api/v1/infinitetalk', infinitetalkRoutes);
+
+// Admin routes (should add authentication middleware in production)
+app.use('/api/admin/api-keys', apiKeyRoutes);
+
 // Health check
 app.get('/health', (req, res) => {
   res.json({ status: 'ok', timestamp: new Date().toISOString() });
