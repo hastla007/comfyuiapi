@@ -144,19 +144,29 @@ router.post('/', async (req, res) => {
       }
 
       // Create Docker container
+      logger.info(`Creating Docker container for instance ${instanceId} on port ${port}`);
       const container = await createContainer({
         name,
         port,
         instanceId,
         workflowPath
       });
+
+      // Verify container was created with valid ID
+      if (!container || !container.id) {
+        logger.error('Container creation did not return a valid container object');
+        throw new Error('Container creation failed: Invalid container object returned');
+      }
+
       containerId = container.id;
+      logger.info(`Docker container created with ID: ${containerId}`);
 
       // Save to database
       await client.query(
         'INSERT INTO containers (container_id, name, port, status, workflow_id) VALUES ($1, $2, $3, $4, $5)',
         [container.id, name, port, 'created', workflowId]
       );
+      logger.info(`Container ${containerId} saved to database`);
 
       // If workflowId is provided, write workflow file to container's directory
       if (workflowId) {
@@ -180,6 +190,7 @@ router.post('/', async (req, res) => {
 
       // Start the container
       try {
+        logger.info(`Starting container ${container.id}`);
         await startContainer(container.id);
 
         // Update status to running
@@ -187,6 +198,7 @@ router.post('/', async (req, res) => {
           'UPDATE containers SET status = $1, updated_at = CURRENT_TIMESTAMP WHERE container_id = $2',
           ['running', container.id]
         );
+        logger.info(`Container ${container.id} started successfully`);
 
         res.json({
           success: true,
@@ -199,6 +211,7 @@ router.post('/', async (req, res) => {
           }
         });
       } catch (startError) {
+        logger.error(`Failed to start container ${container.id}:`, startError.message);
         // If start fails, update status to failed
         await client.query(
           'UPDATE containers SET status = $1, updated_at = CURRENT_TIMESTAMP WHERE container_id = $2',
@@ -207,36 +220,46 @@ router.post('/', async (req, res) => {
         throw startError;
       }
     } catch (innerError) {
-      logger.error('Error creating container:', innerError);
+      logger.error('Error in container creation process:', {
+        error: innerError.message,
+        stack: process.env.NODE_ENV === 'development' ? innerError.stack : undefined,
+        containerId
+      });
 
       // Rollback: remove container and DB entry on failure
       if (containerId) {
         try {
+          logger.info(`Rolling back container ${containerId}`);
           await removeContainer(containerId, true);
           await client.query('DELETE FROM containers WHERE container_id = $1', [containerId]);
-          logger.info(`Rolled back container ${containerId} due to error`);
+          logger.info(`Successfully rolled back container ${containerId}`);
         } catch (rollbackError) {
-          logger.error('Error during rollback:', rollbackError);
+          logger.error(`Error during rollback of container ${containerId}:`, rollbackError.message);
         }
       }
 
       // Provide more detailed error message for debugging
       const errorMessage = innerError.message || 'Failed to create container';
-      res.status(500).json({
+      const statusCode = innerError.message && innerError.message.includes('not found') ? 404 : 500;
+
+      res.status(statusCode).json({
         success: false,
-        error: 'Failed to create container',
-        details: process.env.NODE_ENV === 'development' ? errorMessage : undefined
+        error: errorMessage,
+        details: process.env.NODE_ENV === 'development' ? innerError.stack : undefined
       });
     } finally {
       client.release();
     }
   } catch (error) {
-    logger.error('Error in container creation validation:', error);
+    logger.error('Error in container creation validation:', {
+      error: error.message,
+      stack: process.env.NODE_ENV === 'development' ? error.stack : undefined
+    });
     const errorMessage = error.message || 'Failed to create container';
-    res.status(500).json({
+    res.status(400).json({
       success: false,
-      error: 'Failed to create container',
-      details: process.env.NODE_ENV === 'development' ? errorMessage : undefined
+      error: errorMessage,
+      details: process.env.NODE_ENV === 'development' ? error.stack : undefined
     });
   }
 });
@@ -248,15 +271,23 @@ router.post('/', async (req, res) => {
 router.post('/:id/start', async (req, res) => {
   try {
     const { id } = req.params;
+    logger.info(`Request to start container ${id}`);
+
     await startContainer(id);
     await pool.query(
       'UPDATE containers SET status = $1, updated_at = CURRENT_TIMESTAMP WHERE container_id = $2',
       ['running', id]
     );
+
+    logger.info(`Container ${id} started successfully`);
     res.json({ success: true, message: 'Container started' });
   } catch (error) {
-    logger.error('Error starting container:', error);
-    res.status(500).json({ success: false, error: 'Failed to start container' });
+    logger.error(`Error starting container ${req.params.id}:`, error.message);
+    const statusCode = error.message && error.message.includes('not found') ? 404 : 500;
+    res.status(statusCode).json({
+      success: false,
+      error: error.message || 'Failed to start container'
+    });
   }
 });
 
@@ -267,15 +298,23 @@ router.post('/:id/start', async (req, res) => {
 router.post('/:id/stop', async (req, res) => {
   try {
     const { id } = req.params;
+    logger.info(`Request to stop container ${id}`);
+
     await stopContainer(id);
     await pool.query(
       'UPDATE containers SET status = $1, updated_at = CURRENT_TIMESTAMP WHERE container_id = $2',
       ['stopped', id]
     );
+
+    logger.info(`Container ${id} stopped successfully`);
     res.json({ success: true, message: 'Container stopped' });
   } catch (error) {
-    logger.error('Error stopping container:', error);
-    res.status(500).json({ success: false, error: 'Failed to stop container' });
+    logger.error(`Error stopping container ${req.params.id}:`, error.message);
+    const statusCode = error.message && error.message.includes('not found') ? 404 : 500;
+    res.status(statusCode).json({
+      success: false,
+      error: error.message || 'Failed to stop container'
+    });
   }
 });
 
@@ -286,15 +325,23 @@ router.post('/:id/stop', async (req, res) => {
 router.post('/:id/restart', async (req, res) => {
   try {
     const { id } = req.params;
+    logger.info(`Request to restart container ${id}`);
+
     await restartContainer(id);
     await pool.query(
       'UPDATE containers SET updated_at = CURRENT_TIMESTAMP WHERE container_id = $1',
       [id]
     );
+
+    logger.info(`Container ${id} restarted successfully`);
     res.json({ success: true, message: 'Container restarted' });
   } catch (error) {
-    logger.error('Error restarting container:', error);
-    res.status(500).json({ success: false, error: 'Failed to restart container' });
+    logger.error(`Error restarting container ${req.params.id}:`, error.message);
+    const statusCode = error.message && error.message.includes('not found') ? 404 : 500;
+    res.status(statusCode).json({
+      success: false,
+      error: error.message || 'Failed to restart container'
+    });
   }
 });
 
