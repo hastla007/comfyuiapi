@@ -91,8 +91,15 @@ async function createContainer(config) {
  */
 async function startContainer(containerId) {
   const container = docker.getContainer(containerId);
-  await container.start();
-  return await container.inspect();
+  try {
+    await container.start();
+    return await container.inspect();
+  } catch (error) {
+    if (error.statusCode === 404) {
+      throw new Error('Container not found');
+    }
+    throw error;
+  }
 }
 
 /**
@@ -100,8 +107,15 @@ async function startContainer(containerId) {
  */
 async function stopContainer(containerId) {
   const container = docker.getContainer(containerId);
-  await container.stop({ t: 10 });
-  return await container.inspect();
+  try {
+    await container.stop({ t: 10 });
+    return await container.inspect();
+  } catch (error) {
+    if (error.statusCode === 404) {
+      throw new Error('Container not found');
+    }
+    throw error;
+  }
 }
 
 /**
@@ -109,8 +123,15 @@ async function stopContainer(containerId) {
  */
 async function restartContainer(containerId) {
   const container = docker.getContainer(containerId);
-  await container.restart();
-  return await container.inspect();
+  try {
+    await container.restart();
+    return await container.inspect();
+  } catch (error) {
+    if (error.statusCode === 404) {
+      throw new Error('Container not found');
+    }
+    throw error;
+  }
 }
 
 /**
@@ -118,7 +139,14 @@ async function restartContainer(containerId) {
  */
 async function removeContainer(containerId, force = false) {
   const container = docker.getContainer(containerId);
-  await container.remove({ force, v: true });
+  try {
+    await container.remove({ force, v: true });
+  } catch (error) {
+    if (error.statusCode === 404) {
+      throw new Error('Container not found');
+    }
+    throw error;
+  }
 }
 
 /**
@@ -126,12 +154,19 @@ async function removeContainer(containerId, force = false) {
  */
 async function getContainerLogs(containerId, tail = 100) {
   const container = docker.getContainer(containerId);
-  const logs = await container.logs({
-    stdout: true,
-    stderr: true,
-    tail
-  });
-  return logs.toString('utf8');
+  try {
+    const logs = await container.logs({
+      stdout: true,
+      stderr: true,
+      tail
+    });
+    return logs.toString('utf8');
+  } catch (error) {
+    if (error.statusCode === 404) {
+      throw new Error('Container not found');
+    }
+    throw error;
+  }
 }
 
 /**
@@ -139,8 +174,17 @@ async function getContainerLogs(containerId, tail = 100) {
  */
 async function getContainerStats(containerId) {
   const container = docker.getContainer(containerId);
-  const stats = await container.stats({ stream: false });
-  return stats;
+  try {
+    // Inspect to verify container exists
+    await container.inspect();
+    const stats = await container.stats({ stream: false });
+    return stats;
+  } catch (error) {
+    if (error.statusCode === 404) {
+      throw new Error('Container not found');
+    }
+    throw error;
+  }
 }
 
 module.exports = {

@@ -13,7 +13,7 @@ router.get('/', async (req, res) => {
     res.json({ success: true, workflows: result.rows });
   } catch (error) {
     console.error('Error getting workflows:', error);
-    res.status(500).json({ success: false, error: error.message });
+    res.status(500).json({ success: false, error: 'Failed to retrieve workflows' });
   }
 });
 
@@ -36,7 +36,7 @@ router.get('/:id', async (req, res) => {
     res.json({ success: true, workflow: result.rows[0] });
   } catch (error) {
     console.error('Error getting workflow:', error);
-    res.status(500).json({ success: false, error: error.message });
+    res.status(500).json({ success: false, error: 'Failed to retrieve workflow' });
   }
 });
 
@@ -51,6 +51,26 @@ router.post('/', async (req, res) => {
       return res.status(400).json({ success: false, error: 'Name and workflow JSON are required' });
     }
 
+    // Validate workflow JSON size (max 5MB)
+    const jsonString = JSON.stringify(workflowJson);
+    const jsonSizeBytes = Buffer.byteLength(jsonString, 'utf8');
+    const maxSizeBytes = 5 * 1024 * 1024; // 5MB
+
+    if (jsonSizeBytes > maxSizeBytes) {
+      return res.status(400).json({
+        success: false,
+        error: 'Workflow JSON too large (max 5MB)'
+      });
+    }
+
+    // Validate workflow JSON is an object
+    if (typeof workflowJson !== 'object' || workflowJson === null) {
+      return res.status(400).json({
+        success: false,
+        error: 'Workflow JSON must be a valid object'
+      });
+    }
+
     const result = await pool.query(
       'INSERT INTO workflows (name, description, workflow_json) VALUES ($1, $2, $3) RETURNING *',
       [name, description, workflowJson]
@@ -59,7 +79,7 @@ router.post('/', async (req, res) => {
     res.json({ success: true, workflow: result.rows[0] });
   } catch (error) {
     console.error('Error creating workflow:', error);
-    res.status(500).json({ success: false, error: error.message });
+    res.status(500).json({ success: false, error: 'Failed to create workflow' });
   }
 });
 
@@ -82,6 +102,26 @@ router.put('/:id', async (req, res) => {
       });
     }
 
+    // Validate workflow JSON size (max 5MB)
+    const jsonString = JSON.stringify(workflowJson);
+    const jsonSizeBytes = Buffer.byteLength(jsonString, 'utf8');
+    const maxSizeBytes = 5 * 1024 * 1024; // 5MB
+
+    if (jsonSizeBytes > maxSizeBytes) {
+      return res.status(400).json({
+        success: false,
+        error: 'Workflow JSON too large (max 5MB)'
+      });
+    }
+
+    // Validate workflow JSON is an object
+    if (typeof workflowJson !== 'object' || workflowJson === null) {
+      return res.status(400).json({
+        success: false,
+        error: 'Workflow JSON must be a valid object'
+      });
+    }
+
     const result = await pool.query(
       'UPDATE workflows SET name = $1, description = $2, workflow_json = $3, updated_at = CURRENT_TIMESTAMP WHERE id = $4 RETURNING *',
       [name, description, workflowJson, numericId]
@@ -94,7 +134,7 @@ router.put('/:id', async (req, res) => {
     res.json({ success: true, workflow: result.rows[0] });
   } catch (error) {
     console.error('Error updating workflow:', error);
-    res.status(500).json({ success: false, error: error.message });
+    res.status(500).json({ success: false, error: 'Failed to update workflow' });
   }
 });
 
@@ -122,7 +162,7 @@ router.delete('/:id', async (req, res) => {
     res.json({ success: true, message: 'Workflow deleted' });
   } catch (error) {
     console.error('Error deleting workflow:', error);
-    res.status(500).json({ success: false, error: error.message });
+    res.status(500).json({ success: false, error: 'Failed to delete workflow' });
   }
 });
 
@@ -139,8 +179,25 @@ router.post('/:id/assign/:containerId', async (req, res) => {
       return res.status(400).json({ success: false, error: 'Invalid workflow ID' });
     }
 
+    // Validate containerId format (Docker container IDs are 12-64 hex characters)
+    if (!containerId || !/^[a-f0-9]{12,64}$/i.test(containerId)) {
+      client.release();
+      return res.status(400).json({ success: false, error: 'Invalid container ID format' });
+    }
+
     // Use transaction for atomicity
     await client.query('BEGIN');
+
+    // Get container instance ID first to verify it exists
+    const container = await client.query('SELECT * FROM containers WHERE container_id = $1', [containerId]);
+
+    if (container.rows.length === 0) {
+      await client.query('ROLLBACK');
+      client.release();
+      return res.status(404).json({ success: false, error: 'Container not found' });
+    }
+
+    const instanceId = container.rows[0].id;
 
     // Update container with workflow ID
     await client.query(
@@ -156,10 +213,6 @@ router.post('/:id/assign/:containerId', async (req, res) => {
       client.release();
       return res.status(404).json({ success: false, error: 'Workflow not found' });
     }
-
-    // Get container instance ID
-    const container = await client.query('SELECT * FROM containers WHERE container_id = $1', [containerId]);
-    const instanceId = container.rows[0].id;
 
     // Sanitize instance ID to prevent path traversal
     const sanitizedId = String(instanceId).replace(/[^0-9]/g, '');
@@ -187,7 +240,7 @@ router.post('/:id/assign/:containerId', async (req, res) => {
     } catch (rollbackError) {
       console.error('Error rolling back transaction:', rollbackError);
     }
-    res.status(500).json({ success: false, error: error.message });
+    res.status(500).json({ success: false, error: 'Failed to assign workflow to container' });
   } finally {
     client.release();
   }
