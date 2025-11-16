@@ -275,8 +275,30 @@ router.post('/:id/assign/:containerId', async (req, res) => {
     }
 
     try {
+      // Ensure workflow directory exists
       await fs.mkdir(workflowDir, { recursive: true });
+
+      // Clear all existing workflow files in the directory (1 instance = 1 workflow)
+      try {
+        const files = await fs.readdir(workflowDir);
+        for (const file of files) {
+          const filePath = path.join(workflowDir, file);
+          // Only delete workflow JSON files
+          if (file.endsWith('.json')) {
+            await fs.unlink(filePath);
+            logger.info(`Deleted old workflow file: ${filePath}`);
+          }
+        }
+      } catch (cleanupError) {
+        // If directory doesn't exist or is empty, that's fine
+        if (cleanupError.code !== 'ENOENT') {
+          logger.warn('Error cleaning workflow directory:', cleanupError);
+        }
+      }
+
+      // Write the new workflow file
       await fs.writeFile(resolvedWorkflowFile, JSON.stringify(workflow.rows[0].workflow_json, null, 2));
+      logger.info(`Workflow assigned to container ${containerId}, instance ${instanceId}`);
 
       // Commit transaction on success
       await client.query('COMMIT');

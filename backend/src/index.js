@@ -25,7 +25,7 @@ const storageRoutes = require('./routes/storage');
 const gpuRoutes = require('./routes/gpu');
 const notificationsRoutes = require('./routes/notifications');
 const { initDatabase } = require('./database');
-const { testDockerConnection } = require('./docker');
+const { testDockerConnection, ensureNetwork } = require('./docker');
 const { scanAndImportWorkflows } = require('./services/workflowScanner');
 const jobProcessor = require('./services/jobProcessor');
 const scheduler = require('./services/scheduler');
@@ -207,6 +207,9 @@ async function start() {
       console.error('Docker connection failed. Exiting...');
       process.exit(1);
     }
+
+    // Ensure Docker network exists
+    await ensureNetwork();
 
     // Initialize database with retry logic
     let retries = 5;
