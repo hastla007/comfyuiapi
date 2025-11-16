@@ -76,6 +76,63 @@ router.post('/', async (req, res) => {
 });
 
 /**
+ * Get queue status with stats
+ * GET /api/jobs/queue
+ */
+router.get('/queue', async (req, res) => {
+  try {
+    // Get active queue items (pending and processing)
+    const queueResult = await pool.query(`
+      SELECT j.*, w.name as workflow_name, c.name as container_name
+      FROM jobs j
+      LEFT JOIN workflows w ON j.workflow_id = w.id
+      LEFT JOIN containers c ON j.container_id = c.id
+      WHERE j.status IN ('queued', 'processing')
+      ORDER BY j.priority DESC, j.created_at ASC
+    `);
+
+    // Get stats by status
+    const statsResult = await pool.query(`
+      SELECT status, COUNT(*) as count
+      FROM jobs
+      WHERE status IN ('queued', 'processing', 'completed', 'failed')
+        AND created_at > NOW() - INTERVAL '1 day'
+      GROUP BY status
+    `);
+
+    const stats = {};
+    statsResult.rows.forEach(row => {
+      stats[row.status] = parseInt(row.count);
+    });
+
+    res.json({
+      success: true,
+      queue: queueResult.rows.map(job => ({
+        id: job.id,
+        workflow_id: job.workflow_id,
+        workflow_name: job.workflow_name,
+        container_id: job.container_id,
+        container_name: job.container_name,
+        status: job.status,
+        priority: job.priority,
+        progress: job.progress,
+        created_at: job.created_at,
+        started_at: job.started_at
+      })),
+      stats: {
+        pending: stats.queued || 0,
+        processing: stats.processing || 0,
+        completed: stats.completed || 0,
+        failed: stats.failed || 0
+      }
+    });
+  } catch (error) {
+    console.error('Error getting queue:', error);
+    res.status(500).json({ error: 'Failed to get queue', details: error.message });
+  }
+});
+
+/**
  * Get job status
  * GET /api/jobs/:id
  */
@@ -182,7 +239,31 @@ router.get('/', async (req, res) => {
     const countResult = await pool.query(countQuery, countParams);
     const total = parseInt(countResult.rows[0].count);
 
+    // Get stats by status
+    const statsResult = await pool.query(`
+      SELECT status, COUNT(*) as count
+      FROM jobs
+      GROUP BY status
+    `);
+
+    const byStatus = {};
+    statsResult.rows.forEach(row => {
+      byStatus[row.status] = parseInt(row.count);
+    });
+
+    // Get timeline data for last 7 days
+    const timelineResult = await pool.query(`
+      SELECT DATE(created_at) as date,
+             SUM(CASE WHEN status = 'completed' THEN 1 ELSE 0 END) as completed,
+             SUM(CASE WHEN status = 'failed' THEN 1 ELSE 0 END) as failed
+      FROM jobs
+      WHERE created_at > NOW() - INTERVAL '7 days'
+      GROUP BY DATE(created_at)
+      ORDER BY date
+    `);
+
     res.json({
+      success: true,
       jobs: result.rows.map(job => ({
         id: job.id,
         workflow_id: job.workflow_id,
@@ -196,8 +277,24 @@ router.get('/', async (req, res) => {
         error_message: job.error_message,
         created_at: job.created_at,
         started_at: job.started_at,
-        completed_at: job.completed_at
+        completed_at: job.completed_at,
+        duration: job.completed_at && job.started_at
+          ? `${Math.round((new Date(job.completed_at) - new Date(job.started_at)) / 1000)}s`
+          : null
       })),
+      stats: {
+        total,
+        completed: byStatus.completed || 0,
+        failed: byStatus.failed || 0,
+        processing: byStatus.processing || 0,
+        pending: byStatus.queued || 0,
+        byStatus,
+        timeline: timelineResult.rows.map(row => ({
+          date: row.date.toISOString().split('T')[0],
+          completed: parseInt(row.completed),
+          failed: parseInt(row.failed)
+        }))
+      },
       pagination: {
         total,
         limit: parseInt(limit),

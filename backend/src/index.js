@@ -2,16 +2,21 @@ const express = require('express');
 const cors = require('cors');
 const bodyParser = require('body-parser');
 const rateLimit = require('express-rate-limit');
+const swaggerUi = require('swagger-ui-express');
 const containerRoutes = require('./routes/containers');
 const workflowRoutes = require('./routes/workflows');
 const jobRoutes = require('./routes/jobs');
 const mediaRoutes = require('./routes/media');
+const healthRoutes = require('./routes/health');
+const settingsRoutes = require('./routes/settings');
 const { initDatabase } = require('./database');
 const { testDockerConnection } = require('./docker');
 const { scanAndImportWorkflows } = require('./services/workflowScanner');
 const jobProcessor = require('./services/jobProcessor');
 const scheduler = require('./services/scheduler');
 const logger = require('./utils/logger');
+const { metricsMiddleware } = require('./middleware/metrics');
+const swaggerSpec = require('./config/swagger');
 
 const app = express();
 const PORT = process.env.PORT || 3000;
@@ -25,6 +30,9 @@ const corsOptions = {
 app.use(cors(corsOptions));
 app.use(bodyParser.json({ limit: '10mb' }));
 app.use(bodyParser.urlencoded({ extended: true, limit: '10mb' }));
+
+// Prometheus metrics middleware
+app.use(metricsMiddleware);
 
 // Request logging middleware
 app.use((req, res, next) => {
@@ -56,21 +64,23 @@ const jobLimiter = rateLimit({
 
 app.use('/api/jobs', jobLimiter);
 
-// Routes
+// API Documentation
+app.use('/api-docs', swaggerUi.serve, swaggerUi.setup(swaggerSpec, {
+  customCss: '.swagger-ui .topbar { display: none }',
+  customSiteTitle: 'ComfyUI API Documentation'
+}));
+
+// Health and monitoring routes
+app.use('/api/health', healthRoutes);
+
+// API Routes
 app.use('/api/containers', containerRoutes);
 app.use('/api/workflows', workflowRoutes);
 app.use('/api/jobs', jobRoutes);
 app.use('/api/media', mediaRoutes);
+app.use('/api/settings', settingsRoutes);
 
-// API v1 Routes (kie.ai compatible)
-app.use('/api/v1/jobs', jobRoutes);
-app.use('/api/v1/wan', wanRoutes);
-app.use('/api/v1/infinitetalk', infinitetalkRoutes);
-
-// Admin routes (should add authentication middleware in production)
-app.use('/api/admin/api-keys', apiKeyRoutes);
-
-// Health check
+// Legacy health check endpoint
 app.get('/health', (req, res) => {
   res.json({ status: 'ok', timestamp: new Date().toISOString() });
 });

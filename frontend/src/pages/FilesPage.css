@@ -1,0 +1,276 @@
+.files-page {
+  max-width: 1400px;
+  margin: 0 auto;
+}
+
+.files-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 2rem;
+}
+
+.files-header h2 {
+  margin: 0;
+  color: #333;
+  font-size: 1.75rem;
+}
+
+.files-controls {
+  display: flex;
+  gap: 1rem;
+  align-items: center;
+}
+
+.view-toggle {
+  display: flex;
+  border: 1px solid #ddd;
+  border-radius: 4px;
+  overflow: hidden;
+}
+
+.view-toggle button {
+  padding: 0.5rem 1rem;
+  border: none;
+  background: white;
+  cursor: pointer;
+  transition: all 0.2s;
+}
+
+.view-toggle button.active {
+  background: #667eea;
+  color: white;
+}
+
+.files-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(200px, 1fr));
+  gap: 1.5rem;
+}
+
+.file-card {
+  background: white;
+  border-radius: 8px;
+  overflow: hidden;
+  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+  cursor: pointer;
+  transition: transform 0.2s, box-shadow 0.2s;
+}
+
+.file-card:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 4px 8px rgba(0, 0, 0, 0.15);
+}
+
+.file-preview {
+  width: 100%;
+  height: 150px;
+  background: #f5f5f5;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  overflow: hidden;
+}
+
+.file-preview img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+}
+
+.file-icon {
+  color: #999;
+}
+
+.file-info {
+  padding: 1rem;
+}
+
+.file-name {
+  font-weight: 500;
+  margin-bottom: 0.5rem;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.file-size {
+  color: #666;
+  font-size: 0.85rem;
+}
+
+.file-actions {
+  padding: 0.75rem;
+  display: flex;
+  gap: 0.5rem;
+  justify-content: flex-end;
+  border-top: 1px solid #eee;
+}
+
+.files-list {
+  background: white;
+  border-radius: 8px;
+  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+  overflow: hidden;
+}
+
+.files-list table {
+  width: 100%;
+  border-collapse: collapse;
+}
+
+.files-list thead {
+  background: #f8f9fa;
+}
+
+.files-list th {
+  padding: 1rem;
+  text-align: left;
+  font-weight: 600;
+  color: #666;
+  font-size: 0.9rem;
+  text-transform: uppercase;
+}
+
+.files-list td {
+  padding: 1rem;
+  border-top: 1px solid #eee;
+}
+
+.files-list tbody tr:hover {
+  background: #f8f9fa;
+}
+
+.file-name-cell {
+  max-width: 300px;
+}
+
+.file-name-wrapper {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+}
+
+.action-buttons {
+  display: flex;
+  gap: 0.5rem;
+}
+
+.btn-action {
+  padding: 0.5rem;
+  border: 1px solid #ddd;
+  border-radius: 4px;
+  background: white;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: all 0.2s;
+}
+
+.btn-action:hover {
+  background: #f0f0f0;
+}
+
+.btn-action.btn-danger {
+  color: #dc3545;
+}
+
+.btn-action.btn-danger:hover {
+  background: #dc3545;
+  color: white;
+  border-color: #dc3545;
+}
+
+.file-preview-modal {
+  position: fixed;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  background: rgba(0, 0, 0, 0.8);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 1000;
+  padding: 2rem;
+}
+
+.modal-content {
+  background: white;
+  border-radius: 8px;
+  padding: 2rem;
+  max-width: 800px;
+  max-height: 90vh;
+  overflow: auto;
+  position: relative;
+}
+
+.modal-content h3 {
+  margin: 0 0 1rem 0;
+  word-break: break-all;
+}
+
+.modal-content img {
+  max-width: 100%;
+  height: auto;
+  border-radius: 4px;
+  margin-bottom: 1rem;
+}
+
+.close-btn {
+  position: absolute;
+  top: 1rem;
+  right: 1rem;
+  width: 40px;
+  height: 40px;
+  border: none;
+  background: #f0f0f0;
+  border-radius: 50%;
+  font-size: 1.5rem;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: background 0.2s;
+}
+
+.close-btn:hover {
+  background: #ddd;
+}
+
+.file-details p {
+  margin: 0.5rem 0;
+}
+
+.loading,
+.no-files {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  padding: 4rem 2rem;
+  color: #888;
+}
+
+.no-files svg {
+  margin-bottom: 1rem;
+  color: #ccc;
+}
+
+.files-footer {
+  margin-top: 2rem;
+  padding: 1rem;
+  background: white;
+  border-radius: 8px;
+  display: flex;
+  justify-content: space-between;
+  font-size: 0.9rem;
+  color: #666;
+}
+
+@media (max-width: 768px) {
+  .files-grid {
+    grid-template-columns: repeat(auto-fill, minmax(150px, 1fr));
+  }
+}
