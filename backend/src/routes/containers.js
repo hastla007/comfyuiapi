@@ -45,19 +45,34 @@ router.get('/', async (req, res) => {
  */
 router.post('/', async (req, res) => {
   const client = await pool.connect();
+  let containerId = null;
+  let containerCreated = false;
+
   try {
-    const { name, port, workflowId } = req.body;
+    const { name, port, workflowId, enableGPU = true } = req.body;
 
     // Validate input
     if (!name || !port) {
       return res.status(400).json({ success: false, error: 'Name and port are required' });
     }
 
+    // Validate port range (avoid privileged ports)
+    const portNum = parseInt(port);
+    if (isNaN(portNum) || portNum < 1024 || portNum > 65535) {
+      return res.status(400).json({
+        success: false,
+        error: 'Port must be between 1024 and 65535'
+      });
+    }
+
     // Check if port is already in use
-    const portCheck = await client.query('SELECT * FROM containers WHERE port = $1', [port]);
+    const portCheck = await client.query('SELECT * FROM containers WHERE port = $1', [portNum]);
     if (portCheck.rows.length > 0) {
       return res.status(400).json({ success: false, error: 'Port already in use' });
     }
+
+    // Begin transaction
+    await client.query('BEGIN');
 
     // Get next instance ID
     const result = await client.query('SELECT MAX(id) as max_id FROM containers');
@@ -66,38 +81,75 @@ router.post('/', async (req, res) => {
     // Create Docker container
     const container = await createContainer({
       name,
-      port,
+      port: portNum,
       instanceId,
-      workflowPath: `/app/workflows/instance-${instanceId}`
+      workflowPath: `/app/workflows/instance-${instanceId}`,
+      enableGPU
     });
+
+    containerId = container.id;
+    containerCreated = true;
 
     // Save to database
     await client.query(
       'INSERT INTO containers (container_id, name, port, status, workflow_id) VALUES ($1, $2, $3, $4, $5)',
-      [container.id, name, port, 'created', workflowId]
+      [container.id, name, portNum, 'created', workflowId]
     );
 
     // Start the container
-    await startContainer(container.id);
+    try {
+      await startContainer(container.id);
 
-    // Update status
-    await client.query(
-      'UPDATE containers SET status = $1, updated_at = CURRENT_TIMESTAMP WHERE container_id = $2',
-      ['running', container.id]
-    );
+      // Update status to running
+      await client.query(
+        'UPDATE containers SET status = $1, updated_at = CURRENT_TIMESTAMP WHERE container_id = $2',
+        ['running', container.id]
+      );
 
-    res.json({
-      success: true,
-      container: {
-        id: container.id,
-        name,
-        port,
-        instanceId,
-        status: 'running'
-      }
-    });
+      // Commit transaction
+      await client.query('COMMIT');
+
+      res.json({
+        success: true,
+        container: {
+          id: container.id,
+          name,
+          port: portNum,
+          instanceId,
+          status: 'running'
+        }
+      });
+    } catch (startError) {
+      // Rollback: container was created but failed to start
+      console.error('Failed to start container:', startError);
+
+      // Rollback database transaction
+      await client.query('ROLLBACK');
+
+      // Remove the container
+      await removeContainer(container.id, true).catch(err => {
+        console.error('Failed to cleanup container:', err);
+      });
+
+      throw new Error(`Container created but failed to start: ${startError.message}`);
+    }
   } catch (error) {
     console.error('Error creating container:', error);
+
+    // Rollback database if in transaction
+    try {
+      await client.query('ROLLBACK');
+    } catch (rollbackError) {
+      // Transaction may not be active
+    }
+
+    // Cleanup: Remove container if it was created
+    if (containerCreated && containerId) {
+      await removeContainer(containerId, true).catch(err => {
+        console.error('Failed to cleanup container after error:', err);
+      });
+    }
+
     res.status(500).json({ success: false, error: error.message });
   } finally {
     client.release();

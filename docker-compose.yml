@@ -11,25 +11,40 @@ services:
       - /var/run/docker.sock:/var/run/docker.sock
       - ./workflows:/app/workflows
       - ./config:/app/config
+      - ./models:/app/models
+      - ./output:/app/output
     environment:
       - NODE_ENV=production
       - DOCKER_HOST=unix:///var/run/docker.sock
+      - DB_HOST=db
+      - DB_PORT=5432
+      - DB_NAME=comfyui
+      - DB_USER=comfyui
+      - DB_PASSWORD=comfyui_password
+      - CORS_ORIGIN=http://localhost:8080
+      - DOCKER_NETWORK=comfyui-network
+      - VOLUME_BASE=/app
     networks:
       - comfyui-network
+    depends_on:
+      db:
+        condition: service_healthy
     restart: unless-stopped
 
   # Frontend web interface
   frontend:
-    build: ./frontend
+    build:
+      context: ./frontend
+      args:
+        - REACT_APP_API_URL=/api
     container_name: comfyui-frontend
     ports:
       - "8080:80"
-    environment:
-      - API_URL=http://api:3000
     networks:
       - comfyui-network
     depends_on:
-      - api
+      api:
+        condition: service_started
     restart: unless-stopped
 
   # Database for storing configurations
@@ -44,6 +59,11 @@ services:
       - db-data:/var/lib/postgresql/data
     networks:
       - comfyui-network
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U comfyui"]
+      interval: 5s
+      timeout: 5s
+      retries: 5
     restart: unless-stopped
 
   # ComfyUI Instance 1 (template - can be scaled)
