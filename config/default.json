@@ -1,0 +1,24 @@
+{
+  "api": {
+    "port": 3000,
+    "host": "0.0.0.0"
+  },
+  "database": {
+    "host": "db",
+    "port": 5432,
+    "name": "comfyui",
+    "user": "comfyui",
+    "password": "comfyui_password"
+  },
+  "docker": {
+    "network": "comfyui-network",
+    "defaultImage": "comfyuiapi-comfyui:latest"
+  },
+  "comfyui": {
+    "defaultPort": 8188,
+    "portRange": {
+      "start": 8188,
+      "end": 8299
+    }
+  }
+}

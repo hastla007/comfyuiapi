@@ -1,0 +1,17 @@
+node_modules/
+*.log
+.env
+.DS_Store
+models/*
+!models/.gitkeep
+output/*
+!output/.gitkeep
+workflows/*/
+!workflows/.gitkeep
+config/*.json
+!config/default.json
+db-data/
+*.pyc
+__pycache__/
+.vscode/
+.idea/

@@ -1,0 +1,8 @@
+# Place your ComfyUI models here
+# Supported model types:
+# - checkpoints/
+# - vae/
+# - loras/
+# - embeddings/
+# - controlnet/
+# - upscale_models/
