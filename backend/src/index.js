@@ -3,6 +3,10 @@ const cors = require('cors');
 const bodyParser = require('body-parser');
 const containerRoutes = require('./routes/containers');
 const workflowRoutes = require('./routes/workflows');
+const jobRoutes = require('./routes/jobs');
+const wanRoutes = require('./routes/wan');
+const infinitetalkRoutes = require('./routes/infinitetalk');
+const apiKeyRoutes = require('./routes/apiKeys');
 const { initDatabase } = require('./database');
 const { testDockerConnection } = require('./docker');
 const { scanAndImportWorkflows } = require('./services/workflowScanner');
@@ -23,6 +27,14 @@ app.use(bodyParser.urlencoded({ extended: true, limit: '10mb' }));
 // Routes
 app.use('/api/containers', containerRoutes);
 app.use('/api/workflows', workflowRoutes);
+
+// API v1 Routes (kie.ai compatible)
+app.use('/api/v1/jobs', jobRoutes);
+app.use('/api/v1/wan', wanRoutes);
+app.use('/api/v1/infinitetalk', infinitetalkRoutes);
+
+// Admin routes (should add authentication middleware in production)
+app.use('/api/admin/api-keys', apiKeyRoutes);
 
 // Health check
 app.get('/health', (req, res) => {
