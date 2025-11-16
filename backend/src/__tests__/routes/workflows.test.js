@@ -1,6 +1,5 @@
 const request = require('supertest');
 const express = require('express');
-const workflowsRoutes = require('../../routes/workflows');
 const { pool } = require('../../database');
 const { authenticateApiKey, requireAdmin } = require('../../middleware/auth');
 
@@ -8,6 +7,9 @@ const { authenticateApiKey, requireAdmin } = require('../../middleware/auth');
 jest.mock('../../database');
 jest.mock('../../middleware/auth');
 jest.mock('../../utils/logger');
+jest.mock('../../docker', () => ({
+  getContainer: jest.fn(),
+}));
 jest.mock('fs', () => {
   const EventEmitter = require('events');
   const mockStream = new EventEmitter();
@@ -25,6 +27,9 @@ jest.mock('fs', () => {
   };
 });
 
+const docker = require('../../docker');
+const workflowsRoutes = require('../../routes/workflows');
+
 const app = express();
 app.use(express.json());
 app.use('/api/workflows', workflowsRoutes);
@@ -34,6 +39,15 @@ describe('Workflows Routes', () => {
     jest.clearAllMocks();
     authenticateApiKey.mockImplementation((req, res, next) => next());
     requireAdmin.mockImplementation((req, res, next) => next());
+    docker.getContainer.mockReset();
+    docker.getContainer.mockReturnValue({
+      inspect: jest.fn().mockResolvedValue({
+        Name: '/test-container',
+        NetworkSettings: { Ports: { '8188/tcp': [{ HostPort: '8188' }] } },
+        HostConfig: { PortBindings: { '8188/tcp': [{ HostPort: '8188' }] } },
+        State: { Status: 'running' }
+      })
+    });
   });
 
   describe('GET /api/workflows', () => {
@@ -296,11 +310,16 @@ describe('Workflows Routes', () => {
       const mockClient = {
         query: jest.fn()
           .mockResolvedValueOnce({ rows: [] }) // BEGIN
-          .mockResolvedValueOnce({ rows: [] }), // Get container - not found
+          .mockResolvedValueOnce({ rows: [] }) // Get container - not found
+          .mockResolvedValueOnce({ rows: [] }), // ROLLBACK
         release: jest.fn()
       };
 
       pool.connect.mockResolvedValue(mockClient);
+
+      const dockerError = new Error('not found');
+      dockerError.statusCode = 404;
+      docker.getContainer.mockImplementation(() => { throw dockerError; });
 
       const response = await request(app)
         .post('/api/workflows/1/assign/abcdef123456')
