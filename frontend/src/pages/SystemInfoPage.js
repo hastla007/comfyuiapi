@@ -58,7 +58,7 @@ function SystemInfoPage() {
   };
 
   const formatBytes = (bytes) => {
-    if (!bytes) return '0 B';
+    if (!bytes || bytes < 0) return 'N/A';
     const sizes = ['B', 'KB', 'MB', 'GB', 'TB'];
     const i = Math.floor(Math.log(bytes) / Math.log(1024));
     return `${(bytes / Math.pow(1024, i)).toFixed(2)} ${sizes[i]}`;
@@ -85,9 +85,17 @@ function SystemInfoPage() {
   };
 
   const getUsageClass = (percent) => {
+    if (percent < 0) return 'unavailable';  // For unavailable metrics
     if (percent >= 90) return 'critical';
     if (percent >= 75) return 'warning';
     return 'normal';
+  };
+
+  const formatMetricValue = (value) => {
+    if (value === null || value === undefined || value < 0) {
+      return 'N/A';
+    }
+    return value.toFixed(1);
   };
 
   return (
@@ -113,6 +121,18 @@ function SystemInfoPage() {
         <div className="loading">Loading system info...</div>
       ) : (
         <>
+          {/* Docker Desktop Warning */}
+          {metrics.system?.dockerDesktop && (
+            <div className="docker-desktop-notice">
+              <Activity size={20} />
+              <div>
+                <strong>Docker Desktop Detected</strong>
+                <p>Some system metrics may be limited when running on Docker Desktop for Windows/Mac.
+                   CPU and memory metrics reflect the container's view, not the host system.</p>
+              </div>
+            </div>
+          )}
+
           {/* Health Status */}
           <div className="health-section">
             <h3>Service Health</h3>
@@ -150,13 +170,13 @@ function SystemInfoPage() {
                   <Cpu size={24} className="metric-icon cpu" />
                   <div className="metric-title">CPU</div>
                 </div>
-                <div className={`metric-value ${getUsageClass(metrics.cpu?.usage || 0)}`}>
-                  {(metrics.cpu?.usage || 0).toFixed(1)}%
+                <div className={`metric-value ${getUsageClass(metrics.cpu?.usage ?? -1)}`}>
+                  {formatMetricValue(metrics.cpu?.usage)}{metrics.cpu?.usage >= 0 ? '%' : ''}
                 </div>
                 <div className="metric-bar">
                   <div
-                    className={`metric-fill ${getUsageClass(metrics.cpu?.usage || 0)}`}
-                    style={{ width: `${metrics.cpu?.usage || 0}%` }}
+                    className={`metric-fill ${getUsageClass(metrics.cpu?.usage ?? -1)}`}
+                    style={{ width: `${Math.max(0, metrics.cpu?.usage || 0)}%` }}
                   />
                 </div>
                 <div className="metric-details">
@@ -169,13 +189,13 @@ function SystemInfoPage() {
                   <Activity size={24} className="metric-icon memory" />
                   <div className="metric-title">Memory</div>
                 </div>
-                <div className={`metric-value ${getUsageClass(metrics.memory?.usagePercent || 0)}`}>
-                  {(metrics.memory?.usagePercent || 0).toFixed(1)}%
+                <div className={`metric-value ${getUsageClass(metrics.memory?.usagePercent ?? -1)}`}>
+                  {formatMetricValue(metrics.memory?.usagePercent)}{metrics.memory?.usagePercent >= 0 ? '%' : ''}
                 </div>
                 <div className="metric-bar">
                   <div
-                    className={`metric-fill ${getUsageClass(metrics.memory?.usagePercent || 0)}`}
-                    style={{ width: `${metrics.memory?.usagePercent || 0}%` }}
+                    className={`metric-fill ${getUsageClass(metrics.memory?.usagePercent ?? -1)}`}
+                    style={{ width: `${Math.max(0, metrics.memory?.usagePercent || 0)}%` }}
                   />
                 </div>
                 <div className="metric-details">
@@ -188,13 +208,13 @@ function SystemInfoPage() {
                   <HardDrive size={24} className="metric-icon disk" />
                   <div className="metric-title">Disk</div>
                 </div>
-                <div className={`metric-value ${getUsageClass(metrics.disk?.usagePercent || 0)}`}>
-                  {(metrics.disk?.usagePercent || 0).toFixed(1)}%
+                <div className={`metric-value ${getUsageClass(metrics.disk?.usagePercent ?? -1)}`}>
+                  {formatMetricValue(metrics.disk?.usagePercent)}{metrics.disk?.usagePercent >= 0 ? '%' : ''}
                 </div>
                 <div className="metric-bar">
                   <div
-                    className={`metric-fill ${getUsageClass(metrics.disk?.usagePercent || 0)}`}
-                    style={{ width: `${metrics.disk?.usagePercent || 0}%` }}
+                    className={`metric-fill ${getUsageClass(metrics.disk?.usagePercent ?? -1)}`}
+                    style={{ width: `${Math.max(0, metrics.disk?.usagePercent || 0)}%` }}
                   />
                 </div>
                 <div className="metric-details">

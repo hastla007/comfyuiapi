@@ -226,3 +226,43 @@
   color: #888;
   font-size: 1.1rem;
 }
+
+/* Docker Desktop Notice */
+.docker-desktop-notice {
+  background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+  color: white;
+  padding: 1.25rem;
+  border-radius: 8px;
+  margin-bottom: 2rem;
+  display: flex;
+  align-items: flex-start;
+  gap: 1rem;
+  box-shadow: 0 4px 6px rgba(102, 126, 234, 0.2);
+}
+
+.docker-desktop-notice svg {
+  flex-shrink: 0;
+  margin-top: 0.25rem;
+}
+
+.docker-desktop-notice strong {
+  display: block;
+  font-size: 1.1rem;
+  margin-bottom: 0.5rem;
+}
+
+.docker-desktop-notice p {
+  margin: 0;
+  opacity: 0.95;
+  line-height: 1.5;
+  font-size: 0.95rem;
+}
+
+/* Unavailable metrics styling */
+.metric-value.unavailable {
+  color: #999;
+}
+
+.metric-fill.unavailable {
+  background: linear-gradient(90deg, #ccc, #ddd);
+}
