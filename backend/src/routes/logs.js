@@ -1,6 +1,6 @@
 const express = require('express');
 const router = express.Router();
-const { authenticate } = require('../middleware/auth');
+const { authenticateApiKey } = require('../middleware/auth');
 const websocketService = require('../services/websocketService');
 const logger = require('../utils/logger');
 const { getContainer } = require('../docker');
@@ -23,7 +23,7 @@ const { getContainer } = require('../docker');
  *       200:
  *         description: Log stream started
  */
-router.get('/stream/:containerId', authenticate, async (req, res) => {
+router.get('/stream/:containerId', authenticateApiKey, async (req, res) => {
   try {
     const { containerId } = req.params;
     const { tail = 100 } = req.query;
@@ -70,7 +70,7 @@ router.get('/stream/:containerId', authenticate, async (req, res) => {
  *     security:
  *       - BearerAuth: []
  */
-router.post('/live/:source', authenticate, async (req, res) => {
+router.post('/live/:source', authenticateApiKey, async (req, res) => {
   try {
     const { source } = req.params;
     const logEntry = req.body;
