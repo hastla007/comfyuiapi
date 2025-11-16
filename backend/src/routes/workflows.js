@@ -1,13 +1,14 @@
 const express = require('express');
 const router = express.Router();
 const { pool } = require('../database');
+const { authenticateApiKey, requireAdmin } = require('../middleware/auth');
 const fs = require('fs').promises;
 const path = require('path');
 
 /**
  * GET /api/workflows - Get all workflows
  */
-router.get('/', async (req, res) => {
+router.get('/', authenticateApiKey, async (req, res) => {
   try {
     const result = await pool.query('SELECT * FROM workflows ORDER BY created_at DESC');
     res.json({ success: true, workflows: result.rows });
@@ -20,7 +21,7 @@ router.get('/', async (req, res) => {
 /**
  * GET /api/workflows/:id - Get a specific workflow
  */
-router.get('/:id', async (req, res) => {
+router.get('/:id', authenticateApiKey, async (req, res) => {
   try {
     const { id } = req.params;
     const numericId = parseInt(id, 10);
@@ -43,7 +44,7 @@ router.get('/:id', async (req, res) => {
 /**
  * POST /api/workflows - Create a new workflow
  */
-router.post('/', async (req, res) => {
+router.post('/', authenticateApiKey, async (req, res) => {
   try {
     const { name, description, workflowJson } = req.body;
 
@@ -94,7 +95,7 @@ router.post('/', async (req, res) => {
 /**
  * PUT /api/workflows/:id - Update a workflow
  */
-router.put('/:id', async (req, res) => {
+router.put('/:id', authenticateApiKey, async (req, res) => {
   try {
     const { id } = req.params;
     const numericId = parseInt(id, 10);
@@ -157,7 +158,7 @@ router.put('/:id', async (req, res) => {
 /**
  * DELETE /api/workflows/:id - Delete a workflow
  */
-router.delete('/:id', async (req, res) => {
+router.delete('/:id', requireAdmin, async (req, res) => {
   try {
     const { id } = req.params;
     const numericId = parseInt(id, 10);
@@ -185,7 +186,7 @@ router.delete('/:id', async (req, res) => {
 /**
  * POST /api/workflows/:id/assign/:containerId - Assign workflow to container
  */
-router.post('/:id/assign/:containerId', async (req, res) => {
+router.post('/:id/assign/:containerId', authenticateApiKey, async (req, res) => {
   const client = await pool.connect();
   try {
     const { id, containerId } = req.params;

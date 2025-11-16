@@ -2,13 +2,13 @@ const express = require('express');
 const router = express.Router();
 const { pool } = require('../database');
 const jobProcessor = require('../services/jobProcessor');
-const { requireAdmin } = require('../middleware/auth');
+const { requireAdmin, authenticateApiKey } = require('../middleware/auth');
 
 /**
  * Create a new job
  * POST /api/jobs
  */
-router.post('/', async (req, res) => {
+router.post('/', authenticateApiKey, async (req, res) => {
   try {
     const {
       workflow_id,
@@ -79,7 +79,7 @@ router.post('/', async (req, res) => {
  * Get queue status with stats
  * GET /api/jobs/queue
  */
-router.get('/queue', async (req, res) => {
+router.get('/queue', authenticateApiKey, async (req, res) => {
   try {
     // Get active queue items (pending and processing)
     const queueResult = await pool.query(`
@@ -136,7 +136,7 @@ router.get('/queue', async (req, res) => {
  * Get job status
  * GET /api/jobs/:id
  */
-router.get('/:id', async (req, res) => {
+router.get('/:id', authenticateApiKey, async (req, res) => {
   try {
     const { id } = req.params;
 
@@ -183,7 +183,7 @@ router.get('/:id', async (req, res) => {
  * List jobs
  * GET /api/jobs
  */
-router.get('/', async (req, res) => {
+router.get('/', authenticateApiKey, async (req, res) => {
   try {
     const {
       limit = 50,
@@ -312,7 +312,7 @@ router.get('/', async (req, res) => {
  * Cancel a job
  * POST /api/jobs/:id/cancel
  */
-router.post('/:id/cancel', async (req, res) => {
+router.post('/:id/cancel', authenticateApiKey, async (req, res) => {
   try {
     const { id } = req.params;
 
@@ -352,7 +352,7 @@ router.post('/:id/cancel', async (req, res) => {
  * Retry a failed job
  * POST /api/jobs/:id/retry
  */
-router.post('/:id/retry', async (req, res) => {
+router.post('/:id/retry', authenticateApiKey, async (req, res) => {
   try {
     const { id } = req.params;
 
@@ -401,7 +401,7 @@ router.post('/:id/retry', async (req, res) => {
  * Get job processor stats
  * GET /api/jobs/stats/processor
  */
-router.get('/stats/processor', async (req, res) => {
+router.get('/stats/processor', authenticateApiKey, async (req, res) => {
   try {
     // Get processor stats
     const processorStats = jobProcessor.getStats();

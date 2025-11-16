@@ -20,9 +20,9 @@ services:
       - DOCKER_HOST=unix:///var/run/docker.sock
       - DB_HOST=db
       - DB_PORT=5432
-      - DB_NAME=comfyui
-      - DB_USER=comfyui
-      - DB_PASSWORD=comfyui_password
+      - DB_NAME=${DB_NAME:-comfyui}
+      - DB_USER=${DB_USER:-comfyui}
+      - DB_PASSWORD=${DB_PASSWORD}
     networks:
       - comfyui-network
     depends_on:
@@ -37,7 +37,7 @@ services:
     ports:
       - "8081:80"
     environment:
-      - API_URL=http://api:3003
+      - API_URL=http://api:3000
     networks:
       - comfyui-network
     depends_on:
@@ -48,16 +48,18 @@ services:
   db:
     image: postgres:15-alpine
     container_name: comfyui-db
+    env_file:
+      - .env
     environment:
-      - POSTGRES_DB=comfyui
-      - POSTGRES_USER=comfyui
-      - POSTGRES_PASSWORD=comfyui_password
+      - POSTGRES_DB=${DB_NAME:-comfyui}
+      - POSTGRES_USER=${DB_USER:-comfyui}
+      - POSTGRES_PASSWORD=${DB_PASSWORD}
     volumes:
       - db-data:/var/lib/postgresql/data
     networks:
       - comfyui-network
     healthcheck:
-      test: ["CMD-SHELL", "pg_isready -U comfyui"]
+      test: ["CMD-SHELL", "pg_isready -U ${DB_USER:-comfyui}"]
       interval: 5s
       timeout: 5s
       retries: 5
@@ -139,9 +141,11 @@ services:
     volumes:
       - ./monitoring/grafana:/etc/grafana/provisioning
       - grafana-data:/var/lib/grafana
+    env_file:
+      - .env
     environment:
-      - GF_SECURITY_ADMIN_USER=admin
-      - GF_SECURITY_ADMIN_PASSWORD=admin
+      - GF_SECURITY_ADMIN_USER=${GRAFANA_ADMIN_USER:-admin}
+      - GF_SECURITY_ADMIN_PASSWORD=${GRAFANA_ADMIN_PASSWORD}
       - GF_USERS_ALLOW_SIGN_UP=false
     networks:
       - comfyui-network
