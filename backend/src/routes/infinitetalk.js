@@ -3,6 +3,7 @@ const router = express.Router();
 const { createJob } = require('../services/jobService');
 const { authenticateApiKey } = require('../middleware/auth');
 const { validateBase64Fields } = require('../utils/validation');
+const logger = require('../utils/logger');
 
 // Apply authentication middleware to all Infinitetalk routes
 router.use(authenticateApiKey);
@@ -132,7 +133,7 @@ router.post('/', async (req, res) => {
 
     res.status(201).json(job);
   } catch (error) {
-    console.error('Error creating Infinitetalk job:', error);
+    logger.error('Error creating Infinitetalk job:', error);
     res.status(500).json({
       success: false,
       error: {
@@ -237,7 +238,7 @@ router.post('/fast', async (req, res) => {
 
     res.status(201).json(job);
   } catch (error) {
-    console.error('Error creating Infinitetalk Fast job:', error);
+    logger.error('Error creating Infinitetalk Fast job:', error);
     res.status(500).json({
       success: false,
       error: {
@@ -385,7 +386,7 @@ router.post('/multi', async (req, res) => {
 
     res.status(201).json(job);
   } catch (error) {
-    console.error('Error creating Infinitetalk Multi job:', error);
+    logger.error('Error creating Infinitetalk Multi job:', error);
     res.status(500).json({
       success: false,
       error: {
@@ -530,7 +531,7 @@ router.post('/fast-multi', async (req, res) => {
 
     res.status(201).json(job);
   } catch (error) {
-    console.error('Error creating Infinitetalk Fast Multi job:', error);
+    logger.error('Error creating Infinitetalk Fast Multi job:', error);
     res.status(500).json({
       success: false,
       error: {
@@ -636,7 +637,7 @@ router.post('/video-to-video', async (req, res) => {
 
     res.status(201).json(job);
   } catch (error) {
-    console.error('Error creating Infinitetalk V2V job:', error);
+    logger.error('Error creating Infinitetalk V2V job:', error);
     res.status(500).json({
       success: false,
       error: {
@@ -742,7 +743,7 @@ router.post('/fast-video-to-video', async (req, res) => {
 
     res.status(201).json(job);
   } catch (error) {
-    console.error('Error creating Infinitetalk Fast V2V job:', error);
+    logger.error('Error creating Infinitetalk Fast V2V job:', error);
     res.status(500).json({
       success: false,
       error: {
