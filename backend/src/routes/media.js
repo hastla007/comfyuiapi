@@ -5,6 +5,21 @@ const mediaStorage = require('../services/mediaStorage');
 const logger = require('../utils/logger');
 
 /**
+ * Get storage stats
+ * GET /api/media/stats/storage
+ * IMPORTANT: This must be defined BEFORE the /:filename route
+ */
+router.get('/stats/storage', async (req, res) => {
+  try {
+    const stats = await mediaStorage.getStats();
+    res.json(stats);
+  } catch (error) {
+    logger.error('Error getting storage stats:', error);
+    res.status(500).json({ error: 'Failed to get storage stats' });
+  }
+});
+
+/**
  * Serve a media file
  * GET /api/media/:filename
  */
@@ -54,20 +69,6 @@ router.get('/:filename', async (req, res) => {
   } catch (error) {
     logger.error(`Error serving media file ${req.params.filename}:`, error);
     res.status(404).json({ error: 'Media not found' });
-  }
-});
-
-/**
- * Get storage stats
- * GET /api/media/stats/storage
- */
-router.get('/stats/storage', async (req, res) => {
-  try {
-    const stats = await mediaStorage.getStats();
-    res.json(stats);
-  } catch (error) {
-    logger.error('Error getting storage stats:', error);
-    res.status(500).json({ error: 'Failed to get storage stats' });
   }
 });
 
