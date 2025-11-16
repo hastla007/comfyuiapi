@@ -385,6 +385,50 @@ docker-compose up -d db
 docker-compose up -d
 ```
 
+### "Failed to create container" or "Failed to assign workflow"
+
+These errors typically occur due to volume mount path configuration issues when using Docker-in-Docker. The API container needs to know the **host** paths for volumes, not container paths.
+
+**Solution 1: Ensure you have a .env file**
+```bash
+# Make sure .env file exists
+cp .env.example .env
+```
+
+**Solution 2: Run docker-compose from the project directory**
+```bash
+# Always run docker-compose from the project root directory
+cd /path/to/comfyuiapi
+docker-compose up -d
+```
+
+**Solution 3: Check volume mounts**
+```bash
+# Verify the models directory exists
+ls -la models/
+
+# Verify the workflows directory exists
+ls -la workflows/
+
+# Check API container logs for detailed error messages
+docker logs comfyui-api
+```
+
+**Solution 4: Rebuild containers after configuration changes**
+```bash
+# Rebuild and restart all services
+docker-compose down
+docker-compose build --no-cache api
+docker-compose up -d
+```
+
+**Technical Details:**
+- The API container uses the Docker socket to create new ComfyUI containers
+- Volume paths in bind mounts are interpreted as **host** paths by Docker
+- The `VOLUME_BASE` environment variable must point to the project directory on the host
+- This is automatically set to `$PWD` in docker-compose.yml (the directory where docker-compose is run)
+- The API container now has `./models` mounted at `/app/models` to ensure consistency
+
 ## Development
 
 ### Run in Development Mode

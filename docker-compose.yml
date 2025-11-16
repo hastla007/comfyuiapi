@@ -10,6 +10,7 @@ services:
     volumes:
       - /var/run/docker.sock:/var/run/docker.sock
       - ./workflows:/app/workflows
+      - ./models:/app/models
       - ./config:/app/config
       - ./backend/logs:/app/logs
       - ./output:/app/output
@@ -18,6 +19,8 @@ services:
     environment:
       - NODE_ENV=production
       - DOCKER_HOST=unix:///var/run/docker.sock
+      - VOLUME_BASE=${PWD:-/home/user/comfyuiapi}
+      - COMFYUI_IMAGE=${COMFYUI_IMAGE:-comfyuiapi-comfyui:latest}
       - DB_HOST=db
       - DB_PORT=5432
       - DB_NAME=${DB_NAME:-comfyui}
