@@ -274,14 +274,30 @@ class JobProcessor {
    * Update job in database
    */
   async updateJob(jobId, updates) {
+    // Whitelist of allowed fields to prevent SQL injection
+    const allowedFields = [
+      'status', 'progress', 'error_message', 'output_image_url',
+      'comfyui_prompt_id', 'started_at', 'completed_at',
+      'input_image_url', 'container_id', 'parameters'
+    ];
+
     const fields = [];
     const values = [];
     let paramIndex = 1;
 
     for (const [key, value] of Object.entries(updates)) {
+      // Only allow whitelisted fields
+      if (!allowedFields.includes(key)) {
+        throw new Error(`Invalid field name: ${key}`);
+      }
       fields.push(`${key} = $${paramIndex}`);
       values.push(value);
       paramIndex++;
+    }
+
+    if (fields.length === 0) {
+      // No valid fields to update
+      return;
     }
 
     // Always update updated_at
