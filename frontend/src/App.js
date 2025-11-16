@@ -4,8 +4,7 @@ import './App.css';
 import ContainerList from './components/ContainerList';
 import CreateContainer from './components/CreateContainer';
 import WorkflowManager from './components/WorkflowManager';
-
-const API_URL = process.env.REACT_APP_API_URL || '/api';
+import { API_URL } from './config';
 
 function App() {
   const [containers, setContainers] = useState([]);
@@ -16,7 +15,10 @@ function App() {
   useEffect(() => {
     fetchContainers();
     fetchWorkflows();
-    const interval = setInterval(fetchContainers, 5000); // Refresh every 5 seconds
+    const interval = setInterval(() => {
+      fetchContainers();
+      fetchWorkflows();
+    }, 5000); // Refresh every 5 seconds
     return () => clearInterval(interval);
   }, []);
 

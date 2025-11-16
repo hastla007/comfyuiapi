@@ -31,7 +31,7 @@ router.get('/', async (req, res) => {
         status: dc.State,
         ports: dc.Ports,
         created: dc.Created,
-        ...dbContainer
+        ...(dbContainer || {})
       };
     });
 
@@ -46,7 +46,6 @@ router.get('/', async (req, res) => {
  * POST /api/containers - Create a new container
  */
 router.post('/', async (req, res) => {
-  const client = await pool.connect();
   let containerId = null;
 
   try {
@@ -90,97 +89,117 @@ router.post('/', async (req, res) => {
       });
     }
 
-    // Check if port is already in use
-    const portCheck = await client.query('SELECT * FROM containers WHERE port = $1', [port]);
-    if (portCheck.rows.length > 0) {
-      return res.status(400).json({ success: false, error: 'Port already in use' });
-    }
-
-    // Get next instance ID
-    const result = await client.query('SELECT MAX(id) as max_id FROM containers');
-    const instanceId = (result.rows[0].max_id || 0) + 1;
-
-    // Validate instanceId is within reasonable range
-    if (instanceId < 1 || instanceId > 100000) {
-      return res.status(500).json({
-        success: false,
-        error: 'Instance ID out of valid range'
-      });
-    }
-
-    // Create Docker container
-    const container = await createContainer({
-      name,
-      port,
-      instanceId,
-      workflowPath: `/app/workflows/instance-${instanceId}`
-    });
-    containerId = container.id;
-
-    // Save to database
-    await client.query(
-      'INSERT INTO containers (container_id, name, port, status, workflow_id) VALUES ($1, $2, $3, $4, $5)',
-      [container.id, name, port, 'created', workflowId]
-    );
-
-    // If workflowId is provided, write workflow file to container's directory
-    if (workflowId) {
-      const workflow = await client.query('SELECT workflow_json FROM workflows WHERE id = $1', [workflowId]);
-      if (workflow.rows.length > 0) {
-        const workflowDir = path.join('/app/workflows', `instance-${instanceId}`);
-        const workflowFile = path.join(workflowDir, 'workflow.json');
-        await fs.mkdir(workflowDir, { recursive: true });
-        await fs.writeFile(workflowFile, JSON.stringify(workflow.rows[0].workflow_json, null, 2));
-      } else {
-        throw new Error('Workflow not found');
+    // Validate workflowId if provided
+    if (workflowId !== undefined && workflowId !== null) {
+      if (typeof workflowId !== 'number' || !Number.isInteger(workflowId) || workflowId < 1) {
+        return res.status(400).json({
+          success: false,
+          error: 'Workflow ID must be a positive integer'
+        });
       }
     }
 
-    // Start the container
+    // Acquire database client only after all basic validation passes
+    const client = await pool.connect();
+
     try {
-      await startContainer(container.id);
+      // Check if port is already in use
+      const portCheck = await client.query('SELECT * FROM containers WHERE port = $1', [port]);
+      if (portCheck.rows.length > 0) {
+        client.release();
+        return res.status(400).json({ success: false, error: 'Port already in use' });
+      }
 
-      // Update status to running
-      await client.query(
-        'UPDATE containers SET status = $1, updated_at = CURRENT_TIMESTAMP WHERE container_id = $2',
-        ['running', container.id]
-      );
+      // Get next instance ID
+      const result = await client.query('SELECT MAX(id) as max_id FROM containers');
+      const instanceId = (result.rows.length > 0 && result.rows[0] ? result.rows[0].max_id || 0 : 0) + 1;
 
-      res.json({
-        success: true,
-        container: {
-          id: container.id,
-          name,
-          port,
-          instanceId,
-          status: 'running'
-        }
+      // Validate instanceId is within reasonable range
+      if (instanceId < 1 || instanceId > 100000) {
+        client.release();
+        return res.status(500).json({
+          success: false,
+          error: 'Instance ID out of valid range'
+        });
+      }
+
+      // Create Docker container
+      const container = await createContainer({
+        name,
+        port,
+        instanceId,
+        workflowPath: `/app/workflows/instance-${instanceId}`
       });
-    } catch (startError) {
-      // If start fails, update status to failed
+      containerId = container.id;
+
+      // Save to database
       await client.query(
-        'UPDATE containers SET status = $1, updated_at = CURRENT_TIMESTAMP WHERE container_id = $2',
-        ['failed', container.id]
+        'INSERT INTO containers (container_id, name, port, status, workflow_id) VALUES ($1, $2, $3, $4, $5)',
+        [container.id, name, port, 'created', workflowId]
       );
-      throw startError;
+
+      // If workflowId is provided, write workflow file to container's directory
+      if (workflowId) {
+        const workflow = await client.query('SELECT workflow_json FROM workflows WHERE id = $1', [workflowId]);
+        if (workflow.rows.length > 0) {
+          const workflowDir = path.join('/app/workflows', `instance-${instanceId}`);
+          const workflowFile = path.join(workflowDir, 'workflow.json');
+          await fs.mkdir(workflowDir, { recursive: true });
+          await fs.writeFile(workflowFile, JSON.stringify(workflow.rows[0].workflow_json, null, 2));
+        } else {
+          throw new Error('Workflow not found');
+        }
+      }
+
+      // Start the container
+      try {
+        await startContainer(container.id);
+
+        // Update status to running
+        await client.query(
+          'UPDATE containers SET status = $1, updated_at = CURRENT_TIMESTAMP WHERE container_id = $2',
+          ['running', container.id]
+        );
+
+        res.json({
+          success: true,
+          container: {
+            id: container.id,
+            name,
+            port,
+            instanceId,
+            status: 'running'
+          }
+        });
+      } catch (startError) {
+        // If start fails, update status to failed
+        await client.query(
+          'UPDATE containers SET status = $1, updated_at = CURRENT_TIMESTAMP WHERE container_id = $2',
+          ['failed', container.id]
+        );
+        throw startError;
+      }
+    } catch (innerError) {
+      console.error('Error creating container:', innerError);
+
+      // Rollback: remove container and DB entry on failure
+      if (containerId) {
+        try {
+          await removeContainer(containerId, true);
+          await client.query('DELETE FROM containers WHERE container_id = $1', [containerId]);
+          console.log(`Rolled back container ${containerId} due to error`);
+        } catch (rollbackError) {
+          console.error('Error during rollback:', rollbackError);
+        }
+      }
+
+      res.status(500).json({ success: false, error: 'Failed to create container' });
+    } finally {
+      client.release();
     }
   } catch (error) {
-    console.error('Error creating container:', error);
-
-    // Rollback: remove container and DB entry on failure
-    if (containerId) {
-      try {
-        await removeContainer(containerId, true);
-        await client.query('DELETE FROM containers WHERE container_id = $1', [containerId]);
-        console.log(`Rolled back container ${containerId} due to error`);
-      } catch (rollbackError) {
-        console.error('Error during rollback:', rollbackError);
-      }
-    }
-
+    console.error('Error in container creation validation:', error);
     res.status(500).json({ success: false, error: 'Failed to create container' });
-  } finally {
-    client.release();
   }
 });
 
