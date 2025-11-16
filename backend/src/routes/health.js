@@ -100,8 +100,8 @@ router.get('/metrics/custom', async (req, res) => {
   }
 });
 
-// Logs endpoint (last N logs) - Protected: requires admin authentication
-router.get('/logs', requireAdmin, async (req, res) => {
+// Logs endpoint (last N logs) - Public endpoint for read access
+router.get('/logs', async (req, res) => {
   try {
     // Validate and bound limit parameter to prevent DoS
     const rawLimit = parseInt(req.query.limit, 10);

@@ -1,9 +1,9 @@
 import React from 'react';
-import { API_URL } from '../config';
 import './ApiDocsPage.css';
 
 function ApiDocsPage() {
-  const swaggerUrl = `${API_URL}/api-docs`;
+  // Swagger UI is served at /api-docs, not /api/api-docs
+  const swaggerUrl = '/api-docs';
 
   return (
     <div className="api-docs-page">

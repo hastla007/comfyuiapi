@@ -8,8 +8,9 @@ const path = require('path');
 
 /**
  * GET /api/workflows - Get all workflows
+ * Public endpoint - no authentication required for read access
  */
-router.get('/', authenticateApiKey, async (req, res) => {
+router.get('/', async (req, res) => {
   try {
     const result = await pool.query('SELECT * FROM workflows ORDER BY created_at DESC');
     res.json({ success: true, workflows: result.rows });
@@ -21,8 +22,9 @@ router.get('/', authenticateApiKey, async (req, res) => {
 
 /**
  * GET /api/workflows/:id - Get a specific workflow
+ * Public endpoint - no authentication required for read access
  */
-router.get('/:id', authenticateApiKey, async (req, res) => {
+router.get('/:id', async (req, res) => {
   try {
     const { id } = req.params;
     const numericId = parseInt(id, 10);
