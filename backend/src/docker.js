@@ -44,6 +44,35 @@ async function testDockerConnection() {
 }
 
 /**
+ * Ensure ComfyUI network exists
+ */
+async function ensureNetwork() {
+  const networkName = 'comfyui-network';
+  try {
+    // Check if network exists
+    const networks = await docker.listNetworks({
+      filters: { name: [networkName] }
+    });
+
+    if (networks.length === 0) {
+      console.log(`Creating Docker network: ${networkName}`);
+      await docker.createNetwork({
+        Name: networkName,
+        Driver: 'bridge',
+        CheckDuplicate: true
+      });
+      console.log(`Docker network ${networkName} created successfully`);
+    } else {
+      console.log(`Docker network ${networkName} already exists`);
+    }
+    return true;
+  } catch (error) {
+    console.error(`Error ensuring network ${networkName}:`, error.message);
+    return false;
+  }
+}
+
+/**
  * Get all ComfyUI containers
  */
 async function getAllContainers() {
@@ -63,6 +92,9 @@ async function getContainer(containerId) {
  */
 async function createContainer(config) {
   const { name, port, workflowPath, instanceId, enableGpu = true } = config;
+
+  // Ensure network exists before creating container
+  await ensureNetwork();
 
   // Use environment variable for volume base path, fallback to /app for production
   const volumeBase = process.env.VOLUME_BASE || '/app';
@@ -216,6 +248,7 @@ async function getContainerStats(containerId) {
 module.exports = {
   docker,
   testDockerConnection,
+  ensureNetwork,
   getAllContainers,
   getContainer,
   createContainer,
