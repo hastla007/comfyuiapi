@@ -1,11 +1,12 @@
 import React, { useState } from 'react';
 import './CreateContainer.css';
 
-function CreateContainer({ onCreate }) {
+function CreateContainer({ onCreate, workflows }) {
   const [showForm, setShowForm] = useState(false);
   const [formData, setFormData] = useState({
     name: '',
     port: '',
+    workflowId: '',
   });
 
   const handleSubmit = async (e) => {
@@ -18,7 +19,7 @@ function CreateContainer({ onCreate }) {
 
     const success = await onCreate(formData);
     if (success) {
-      setFormData({ name: '', port: '' });
+      setFormData({ name: '', port: '', workflowId: '' });
       setShowForm(false);
     }
   };
@@ -73,6 +74,24 @@ function CreateContainer({ onCreate }) {
                 required
               />
               <small>Choose a port between 1024-65535 (avoid 8188-8189 if instances 1-2 are running)</small>
+            </div>
+
+            <div className="form-group">
+              <label htmlFor="workflowId">Workflow (Optional)</label>
+              <select
+                id="workflowId"
+                name="workflowId"
+                value={formData.workflowId}
+                onChange={handleChange}
+              >
+                <option value="">No workflow</option>
+                {workflows.map((workflow) => (
+                  <option key={workflow.id} value={workflow.id}>
+                    {workflow.name}
+                  </option>
+                ))}
+              </select>
+              <small>Select a workflow to run in this container</small>
             </div>
 
             <div className="form-actions">

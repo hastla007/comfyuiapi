@@ -101,6 +101,20 @@ function App() {
     }
   };
 
+  const handleAssignWorkflow = async (containerId, workflowId) => {
+    try {
+      const response = await axios.post(`${API_URL}/workflows/${workflowId}/assign/${containerId}`);
+      if (response.data.success) {
+        fetchContainers();
+        return true;
+      }
+    } catch (error) {
+      console.error('Error assigning workflow:', error);
+      alert(error.response?.data?.error || 'Failed to assign workflow');
+      return false;
+    }
+  };
+
   return (
     <div className="App">
       <header className="App-header">
@@ -126,14 +140,16 @@ function App() {
       <main className="App-main">
         {activeTab === 'containers' && (
           <>
-            <CreateContainer onCreate={handleCreateContainer} />
+            <CreateContainer onCreate={handleCreateContainer} workflows={workflows} />
             <ContainerList
               containers={containers}
+              workflows={workflows}
               loading={loading}
               onStart={handleStartContainer}
               onStop={handleStopContainer}
               onRestart={handleRestartContainer}
               onDelete={handleDeleteContainer}
+              onAssignWorkflow={handleAssignWorkflow}
             />
           </>
         )}
