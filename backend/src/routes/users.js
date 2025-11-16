@@ -2,6 +2,7 @@ const express = require('express');
 const router = express.Router();
 const { pool } = require('../database');
 const { requireAdmin } = require('../middleware/auth');
+const logger = require('../utils/logger');
 
 /**
  * GET /api/admin/users - List all users
@@ -19,7 +20,7 @@ router.get('/', requireAdmin, async (req, res) => {
       users: result.rows
     });
   } catch (error) {
-    console.error('Error listing users:', error);
+    logger.error('Error listing users:', error);
     res.status(500).json({
       success: false,
       error: {
@@ -69,7 +70,7 @@ router.get('/:id', requireAdmin, async (req, res) => {
       user: result.rows[0]
     });
   } catch (error) {
-    console.error('Error getting user:', error);
+    logger.error('Error getting user:', error);
     res.status(500).json({
       success: false,
       error: {

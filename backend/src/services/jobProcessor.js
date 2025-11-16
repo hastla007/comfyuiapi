@@ -337,7 +337,7 @@ class JobProcessor {
           completed_at = CURRENT_TIMESTAMP,
           updated_at = CURRENT_TIMESTAMP
       WHERE id = $2
-      RETURNING job_id, callback_url, model, request_payload, user_id
+      RETURNING id, job_id, callback_url, model, request_payload, user_id
     `, [outputUrl, jobId]);
 
     // Broadcast real-time completion event
@@ -379,7 +379,7 @@ class JobProcessor {
           completed_at = CURRENT_TIMESTAMP,
           updated_at = CURRENT_TIMESTAMP
       WHERE id = $2
-      RETURNING job_id, callback_url, model, request_payload, user_id
+      RETURNING id, job_id, callback_url, model, request_payload, user_id
     `, [errorMessage, jobId]);
 
     // Broadcast real-time error event

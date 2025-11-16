@@ -114,7 +114,7 @@ router.post('/2.2/text-to-video-turbo', async (req, res) => {
 
     res.status(201).json(job);
   } catch (error) {
-    console.error('Error creating WAN 2.2 T2V job:', error);
+    logger.error('Error creating WAN 2.2 T2V job:', error);
     res.status(500).json({
       success: false,
       error: {
@@ -197,7 +197,7 @@ router.post('/2.2/image-to-video-turbo', async (req, res) => {
 
     res.status(201).json(job);
   } catch (error) {
-    console.error('Error creating WAN 2.2 I2V job:', error);
+    logger.error('Error creating WAN 2.2 I2V job:', error);
     res.status(500).json({
       success: false,
       error: {
@@ -283,7 +283,7 @@ router.post('/2.5/text-to-video', async (req, res) => {
 
     res.status(201).json(job);
   } catch (error) {
-    console.error('Error creating WAN 2.5 T2V job:', error);
+    logger.error('Error creating WAN 2.5 T2V job:', error);
     res.status(500).json({
       success: false,
       error: {
@@ -382,7 +382,7 @@ router.post('/2.5/image-to-video', async (req, res) => {
 
     res.status(201).json(job);
   } catch (error) {
-    console.error('Error creating WAN 2.5 I2V job:', error);
+    logger.error('Error creating WAN 2.5 I2V job:', error);
     res.status(500).json({
       success: false,
       error: {

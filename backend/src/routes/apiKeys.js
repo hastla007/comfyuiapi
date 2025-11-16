@@ -7,6 +7,7 @@ const {
   listApiKeys,
   requireAdmin
 } = require('../middleware/auth');
+const logger = require('../utils/logger');
 
 /**
  * POST /api/admin/api-keys - Create a new API key
@@ -64,7 +65,7 @@ router.post('/', requireAdmin, async (req, res) => {
       message: 'Save this API key securely. It will not be shown again.'
     });
   } catch (error) {
-    console.error('Error creating API key:', error);
+    logger.error('Error creating API key:', error);
     res.status(500).json({
       success: false,
       error: {
@@ -99,7 +100,7 @@ router.get('/:userId', requireAdmin, async (req, res) => {
       api_keys: keys
     });
   } catch (error) {
-    console.error('Error listing API keys:', error);
+    logger.error('Error listing API keys:', error);
     res.status(500).json({
       success: false,
       error: {
@@ -144,7 +145,7 @@ router.delete('/:keyId', requireAdmin, async (req, res) => {
       message: 'API key revoked successfully'
     });
   } catch (error) {
-    console.error('Error revoking API key:', error);
+    logger.error('Error revoking API key:', error);
     res.status(500).json({
       success: false,
       error: {
