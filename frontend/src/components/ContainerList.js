@@ -57,7 +57,9 @@ function ContainerList({ containers, workflows, loading, onStart, onStop, onRest
       alert('Please select a workflow');
       return;
     }
-    const success = await onAssignWorkflow(assigningWorkflow, selectedWorkflow);
+    // Convert selectedWorkflow to number before passing to API
+    const workflowId = parseInt(selectedWorkflow, 10);
+    const success = await onAssignWorkflow(assigningWorkflow, workflowId);
     if (success) {
       handleCloseAssignModal();
     }
