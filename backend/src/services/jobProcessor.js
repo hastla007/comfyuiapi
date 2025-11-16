@@ -1,6 +1,7 @@
 const { pool } = require('../database');
 const { createClient } = require('./comfyuiClient');
 const { triggerWebhook } = require('./webhookService');
+const websocketService = require('./websocketService');
 const logger = require('../utils/logger');
 const fs = require('fs').promises;
 const path = require('path');
@@ -194,6 +195,16 @@ class JobProcessor {
     client.on('progress', async (data) => {
       if (data.percentage !== undefined) {
         await this.updateJob(jobId, { progress: data.percentage });
+
+        // Broadcast real-time progress update
+        const job = await this.getJobStatus(jobId);
+        websocketService.broadcastJobProgress(jobId, {
+          progress: data.percentage,
+          status: 'processing',
+          currentNode: data.currentNode,
+          totalNodes: data.totalNodes,
+          userId: job?.user_id
+        });
       }
     });
 
@@ -326,25 +337,34 @@ class JobProcessor {
           completed_at = CURRENT_TIMESTAMP,
           updated_at = CURRENT_TIMESTAMP
       WHERE id = $2
-      RETURNING job_id, callback_url, model, request_payload
+      RETURNING job_id, callback_url, model, request_payload, user_id
     `, [outputUrl, jobId]);
 
-    // Trigger webhook if callback_url exists
-    if (result.rows.length > 0 && result.rows[0].callback_url) {
+    // Broadcast real-time completion event
+    if (result.rows.length > 0) {
       const job = result.rows[0];
-      await triggerWebhook(
-        job.callback_url,
-        {
-          job_id: job.job_id,
-          status: 'completed',
-          model: job.model,
-          result: { output_url: outputUrl },
-          completed_at: new Date().toISOString()
-        },
-        job.job_id
-      ).catch(err => {
-        logger.error(`Failed to trigger webhook for job ${job.job_id}:`, err);
+      websocketService.broadcastJobCompletion(jobId, {
+        status: 'completed',
+        result: { output_url: outputUrl },
+        userId: job.user_id
       });
+
+      // Trigger webhook if callback_url exists
+      if (job.callback_url) {
+        await triggerWebhook(
+          job.callback_url,
+          {
+            job_id: job.job_id,
+            status: 'completed',
+            model: job.model,
+            result: { output_url: outputUrl },
+            completed_at: new Date().toISOString()
+          },
+          job.job_id
+        ).catch(err => {
+          logger.error(`Failed to trigger webhook for job ${job.job_id}:`, err);
+        });
+      }
     }
   }
 
@@ -359,25 +379,34 @@ class JobProcessor {
           completed_at = CURRENT_TIMESTAMP,
           updated_at = CURRENT_TIMESTAMP
       WHERE id = $2
-      RETURNING job_id, callback_url, model, request_payload
+      RETURNING job_id, callback_url, model, request_payload, user_id
     `, [errorMessage, jobId]);
 
-    // Trigger webhook if callback_url exists
-    if (result.rows.length > 0 && result.rows[0].callback_url) {
+    // Broadcast real-time error event
+    if (result.rows.length > 0) {
       const job = result.rows[0];
-      await triggerWebhook(
-        job.callback_url,
-        {
-          job_id: job.job_id,
-          status: 'failed',
-          model: job.model,
-          error: { message: errorMessage },
-          completed_at: new Date().toISOString()
-        },
-        job.job_id
-      ).catch(err => {
-        logger.error(`Failed to trigger webhook for job ${job.job_id}:`, err);
+      websocketService.broadcastJobCompletion(jobId, {
+        status: 'failed',
+        error: errorMessage,
+        userId: job.user_id
       });
+
+      // Trigger webhook if callback_url exists
+      if (job.callback_url) {
+        await triggerWebhook(
+          job.callback_url,
+          {
+            job_id: job.job_id,
+            status: 'failed',
+            model: job.model,
+            error: { message: errorMessage },
+            completed_at: new Date().toISOString()
+          },
+          job.job_id
+        ).catch(err => {
+          logger.error(`Failed to trigger webhook for job ${job.job_id}:`, err);
+        });
+      }
     }
   }
 
