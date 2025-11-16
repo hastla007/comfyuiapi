@@ -3,6 +3,7 @@ const router = express.Router();
 const { pool } = require('../database');
 const jobProcessor = require('../services/jobProcessor');
 const { requireAdmin, authenticateApiKey } = require('../middleware/auth');
+const logger = require('../utils/logger');
 
 /**
  * Create a new job
@@ -70,7 +71,7 @@ router.post('/', authenticateApiKey, async (req, res) => {
       }
     });
   } catch (error) {
-    console.error('Error creating job:', error);
+    logger.error('Error creating job:', error);
     res.status(500).json({ error: 'Failed to create job', details: error.message });
   }
 });
@@ -127,7 +128,7 @@ router.get('/queue', authenticateApiKey, async (req, res) => {
       }
     });
   } catch (error) {
-    console.error('Error getting queue:', error);
+    logger.error('Error getting queue:', error);
     res.status(500).json({ error: 'Failed to get queue', details: error.message });
   }
 });
@@ -174,7 +175,7 @@ router.get('/:id', authenticateApiKey, async (req, res) => {
       completed_at: job.completed_at
     });
   } catch (error) {
-    console.error('Error getting job:', error);
+    logger.error('Error getting job:', error);
     res.status(500).json({ error: 'Failed to get job', details: error.message });
   }
 });
@@ -185,12 +186,17 @@ router.get('/:id', authenticateApiKey, async (req, res) => {
  */
 router.get('/', authenticateApiKey, async (req, res) => {
   try {
-    const {
-      limit = 50,
-      offset = 0,
-      status,
-      workflow_id
-    } = req.query;
+    // Validate and bound pagination parameters
+    const rawLimit = parseInt(req.query.limit, 10);
+    const rawOffset = parseInt(req.query.offset, 10);
+
+    // Bound limit between 1 and 1000, default to 50
+    const limit = isNaN(rawLimit) ? 50 : Math.min(Math.max(rawLimit, 1), 1000);
+
+    // Bound offset to non-negative values, default to 0
+    const offset = isNaN(rawOffset) ? 0 : Math.max(rawOffset, 0);
+
+    const { status, workflow_id } = req.query;
 
     // Build query
     let query = `
@@ -210,13 +216,21 @@ router.get('/', authenticateApiKey, async (req, res) => {
     }
 
     if (workflow_id) {
+      // Validate workflow_id as a positive integer
+      const workflowIdNum = parseInt(workflow_id, 10);
+      if (isNaN(workflowIdNum) || workflowIdNum < 1) {
+        return res.status(400).json({
+          success: false,
+          error: 'Invalid workflow_id parameter. Must be a positive integer.'
+        });
+      }
       query += ` AND j.workflow_id = $${paramIndex}`;
-      params.push(workflow_id);
+      params.push(workflowIdNum);
       paramIndex++;
     }
 
     query += ` ORDER BY j.created_at DESC LIMIT $${paramIndex} OFFSET $${paramIndex + 1}`;
-    params.push(parseInt(limit), parseInt(offset));
+    params.push(limit, offset);
 
     const result = await pool.query(query, params);
 
@@ -232,8 +246,10 @@ router.get('/', authenticateApiKey, async (req, res) => {
     }
 
     if (workflow_id) {
+      // Use the already validated workflowIdNum
+      const workflowIdNum = parseInt(workflow_id, 10);
       countQuery += ` AND workflow_id = $${countParamIndex}`;
-      countParams.push(workflow_id);
+      countParams.push(workflowIdNum);
     }
 
     const countResult = await pool.query(countQuery, countParams);
@@ -303,7 +319,7 @@ router.get('/', authenticateApiKey, async (req, res) => {
       }
     });
   } catch (error) {
-    console.error('Error listing jobs:', error);
+    logger.error('Error listing jobs:', error);
     res.status(500).json({ error: 'Failed to list jobs', details: error.message });
   }
 });
@@ -343,7 +359,7 @@ router.post('/:id/cancel', authenticateApiKey, async (req, res) => {
       message: 'Job cancelled successfully'
     });
   } catch (error) {
-    console.error('Error cancelling job:', error);
+    logger.error('Error cancelling job:', error);
     res.status(500).json({ error: 'Failed to cancel job', details: error.message });
   }
 });
@@ -392,7 +408,7 @@ router.post('/:id/retry', authenticateApiKey, async (req, res) => {
       message: 'Job requeued successfully'
     });
   } catch (error) {
-    console.error('Error retrying job:', error);
+    logger.error('Error retrying job:', error);
     res.status(500).json({ error: 'Failed to retry job', details: error.message });
   }
 });
@@ -437,7 +453,7 @@ router.get('/stats/processor', authenticateApiKey, async (req, res) => {
       }
     });
   } catch (error) {
-    console.error('Error getting stats:', error);
+    logger.error('Error getting stats:', error);
     res.status(500).json({ error: 'Failed to get stats', details: error.message });
   }
 });
@@ -472,7 +488,7 @@ router.delete('/cleanup', requireAdmin, async (req, res) => {
       deleted: result.rowCount
     });
   } catch (error) {
-    console.error('Error cleaning up jobs:', error);
+    logger.error('Error cleaning up jobs:', error);
     res.status(500).json({ error: 'Failed to cleanup jobs', details: error.message });
   }
 });

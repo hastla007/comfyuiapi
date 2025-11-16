@@ -1,4 +1,5 @@
 const crypto = require('crypto');
+const logger = require('../utils/logger');
 
 /**
  * Admin Authentication Middleware
@@ -215,7 +216,7 @@ async function authenticateApiKey(req, res, next) {
 
     next();
   } catch (error) {
-    console.error('API key authentication error:', error);
+    logger.error('API key authentication error:', error);
     return res.status(500).json({
       success: false,
       error: {

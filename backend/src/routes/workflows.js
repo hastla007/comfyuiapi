@@ -2,6 +2,7 @@ const express = require('express');
 const router = express.Router();
 const { pool } = require('../database');
 const { authenticateApiKey, requireAdmin } = require('../middleware/auth');
+const logger = require('../utils/logger');
 const fs = require('fs').promises;
 const path = require('path');
 
@@ -13,7 +14,7 @@ router.get('/', authenticateApiKey, async (req, res) => {
     const result = await pool.query('SELECT * FROM workflows ORDER BY created_at DESC');
     res.json({ success: true, workflows: result.rows });
   } catch (error) {
-    console.error('Error getting workflows:', error);
+    logger.error('Error getting workflows:', error);
     res.status(500).json({ success: false, error: 'Failed to retrieve workflows' });
   }
 });
@@ -36,7 +37,7 @@ router.get('/:id', authenticateApiKey, async (req, res) => {
 
     res.json({ success: true, workflow: result.rows[0] });
   } catch (error) {
-    console.error('Error getting workflow:', error);
+    logger.error('Error getting workflow:', error);
     res.status(500).json({ success: false, error: 'Failed to retrieve workflow' });
   }
 });
@@ -87,7 +88,7 @@ router.post('/', authenticateApiKey, async (req, res) => {
 
     res.json({ success: true, workflow: result.rows[0] });
   } catch (error) {
-    console.error('Error creating workflow:', error);
+    logger.error('Error creating workflow:', error);
     res.status(500).json({ success: false, error: 'Failed to create workflow' });
   }
 });
@@ -150,7 +151,7 @@ router.put('/:id', authenticateApiKey, async (req, res) => {
 
     res.json({ success: true, workflow: result.rows[0] });
   } catch (error) {
-    console.error('Error updating workflow:', error);
+    logger.error('Error updating workflow:', error);
     res.status(500).json({ success: false, error: 'Failed to update workflow' });
   }
 });
@@ -178,7 +179,7 @@ router.delete('/:id', requireAdmin, async (req, res) => {
     await pool.query('DELETE FROM workflows WHERE id = $1', [numericId]);
     res.json({ success: true, message: 'Workflow deleted' });
   } catch (error) {
-    console.error('Error deleting workflow:', error);
+    logger.error('Error deleting workflow:', error);
     res.status(500).json({ success: false, error: 'Failed to delete workflow' });
   }
 });
@@ -277,16 +278,16 @@ router.post('/:id/assign/:containerId', authenticateApiKey, async (req, res) => 
       await client.query('COMMIT');
       res.json({ success: true, message: 'Workflow assigned to container' });
     } catch (fsError) {
-      console.error('Error writing workflow file:', fsError);
+      logger.error('Error writing workflow file:', fsError);
       await client.query('ROLLBACK');
       throw fsError;
     }
   } catch (error) {
-    console.error('Error assigning workflow:', error);
+    logger.error('Error assigning workflow:', error);
     try {
       await client.query('ROLLBACK');
     } catch (rollbackError) {
-      console.error('Error rolling back transaction:', rollbackError);
+      logger.error('Error rolling back transaction:', rollbackError);
     }
     res.status(500).json({ success: false, error: 'Failed to assign workflow to container' });
   } finally {

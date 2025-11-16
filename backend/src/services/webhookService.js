@@ -1,6 +1,7 @@
 const axios = require('axios');
 const crypto = require('crypto');
 const { pool } = require('../database');
+const logger = require('../utils/logger');
 
 // Track pending webhook retry timers for cleanup
 const pendingRetryTimers = new Map(); // jobId -> timeoutId
@@ -12,7 +13,7 @@ async function triggerWebhook(callbackUrl, payload, jobId) {
   try {
     // Validate callback URL
     if (!isValidCallbackUrl(callbackUrl)) {
-      console.error('Invalid callback URL:', callbackUrl);
+      logger.error('Invalid callback URL:', callbackUrl);
       return false;
     }
 
@@ -33,7 +34,7 @@ async function triggerWebhook(callbackUrl, payload, jobId) {
     });
 
     // Log successful webhook
-    console.log(`Webhook sent successfully for job ${jobId}:`, response.status);
+    logger.info(`Webhook sent successfully for job ${jobId}:`, response.status);
 
     // Clear any pending retry timer for this job
     if (pendingRetryTimers.has(jobId)) {
@@ -52,7 +53,7 @@ async function triggerWebhook(callbackUrl, payload, jobId) {
 
     return true;
   } catch (error) {
-    console.error(`Webhook failed for job ${jobId}:`, error.message);
+    logger.error(`Webhook failed for job ${jobId}:`, error.message);
 
     // Update callback attempts
     await pool.query(
@@ -80,7 +81,7 @@ async function triggerWebhook(callbackUrl, payload, jobId) {
       const timerId = setTimeout(() => {
         pendingRetryTimers.delete(jobId);
         triggerWebhook(callbackUrl, payload, jobId).catch(err => {
-          console.error(`Retry webhook failed for job ${jobId}:`, err);
+          logger.error(`Retry webhook failed for job ${jobId}:`, err);
         });
       }, retryDelay);
 
@@ -96,8 +97,20 @@ async function triggerWebhook(callbackUrl, payload, jobId) {
  * Generate HMAC-SHA256 signature for webhook
  */
 function generateWebhookSignature(payload, timestamp) {
-  // In production, use a secret key from environment
-  const secret = process.env.WEBHOOK_SECRET || 'default-webhook-secret-change-me';
+  // Require WEBHOOK_SECRET in production environments
+  const secret = process.env.WEBHOOK_SECRET;
+
+  // In test/development without webhooks, allow fallback
+  if (!secret && process.env.NODE_ENV !== 'production') {
+    console.warn('WARNING: WEBHOOK_SECRET not set. Using default for non-production environment.');
+    const fallbackSecret = 'development-webhook-secret-' + (process.env.NODE_ENV || 'dev');
+    const message = `${payload.job_id}:${payload.status}:${timestamp}`;
+    return crypto.createHmac('sha256', fallbackSecret).update(message).digest('hex');
+  }
+
+  if (!secret) {
+    throw new Error('WEBHOOK_SECRET environment variable is required for webhook signatures');
+  }
 
   const message = `${payload.job_id}:${payload.status}:${timestamp}`;
   return crypto.createHmac('sha256', secret).update(message).digest('hex');
@@ -226,7 +239,7 @@ function clearAllPendingRetries() {
     clearTimeout(timerId);
   }
   pendingRetryTimers.clear();
-  console.log('Cleared all pending webhook retry timers');
+  logger.info('Cleared all pending webhook retry timers');
 }
 
 module.exports = {
