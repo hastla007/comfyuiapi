@@ -183,14 +183,15 @@ app.use((err, req, res, next) => {
     method: req.method
   });
 
-  // Don't leak error details in production
+  // Prefer explicit messages while still withholding stack traces in production
   const isDevelopment = process.env.NODE_ENV !== 'production';
+  const safeMessage = err.publicMessage || err.message || 'An unexpected error occurred';
 
   res.status(err.status || 500).json({
     success: false,
     error: {
       code: err.code || 'internal_error',
-      message: isDevelopment ? err.message : 'An unexpected error occurred',
+      message: safeMessage,
       ...(isDevelopment && { stack: err.stack }),
       requestId: req.id
     }

@@ -339,7 +339,7 @@ router.post('/:id/assign/:containerId', async (req, res) => {
     const errorMessage = error.message || 'Failed to assign workflow to container';
     res.status(500).json({
       success: false,
-      error: 'Failed to assign workflow to container',
+      error: errorMessage,
       details: process.env.NODE_ENV === 'development' ? errorMessage : undefined
     });
   } finally {

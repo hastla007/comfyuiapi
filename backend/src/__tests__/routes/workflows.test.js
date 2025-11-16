@@ -2,6 +2,7 @@ const request = require('supertest');
 const express = require('express');
 const { pool } = require('../../database');
 const { authenticateApiKey, requireAdmin } = require('../../middleware/auth');
+const fs = require('fs');
 
 // Mock dependencies
 jest.mock('../../database');
@@ -326,6 +327,31 @@ describe('Workflows Routes', () => {
         .expect(404);
 
       expect(response.body.error).toContain('Container not found');
+    });
+
+    test('should surface file system errors when assigning workflow', async () => {
+      const writeError = new Error('write failed');
+      fs.promises.writeFile.mockRejectedValueOnce(writeError);
+
+      const mockClient = {
+        query: jest.fn()
+          .mockResolvedValueOnce({ rows: [] }) // BEGIN
+          .mockResolvedValueOnce({ rows: [{ id: 2 }] }) // Get container exists
+          .mockResolvedValueOnce({ rows: [] }) // Update container
+          .mockResolvedValueOnce({ rows: [{ workflow_json: {} }] }) // Get workflow
+          .mockResolvedValueOnce({ rows: [] }), // ROLLBACK
+        release: jest.fn()
+      };
+
+      pool.connect.mockResolvedValue(mockClient);
+
+      const response = await request(app)
+        .post('/api/workflows/1/assign/abcdef123456')
+        .expect(500);
+
+      expect(response.body.success).toBe(false);
+      expect(response.body.error).toBe('write failed');
+      expect(mockClient.release).toHaveBeenCalled();
     });
   });
 });
