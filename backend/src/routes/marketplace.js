@@ -71,7 +71,19 @@ router.get('/:id', async (req, res) => {
   try {
     const { id } = req.params;
 
-    const workflow = await marketplaceService.getWorkflowById(parseInt(id));
+    // Validate ID is a positive integer
+    const numericId = parseInt(id, 10);
+    if (isNaN(numericId) || !Number.isSafeInteger(numericId) || numericId < 1) {
+      return res.status(400).json({
+        success: false,
+        error: {
+          code: 'invalid_id',
+          message: 'Invalid workflow ID'
+        }
+      });
+    }
+
+    const workflow = await marketplaceService.getWorkflowById(numericId);
 
     if (!workflow) {
       return res.status(404).json({

@@ -270,8 +270,20 @@ router.get('/scheduled/:id', authenticateApiKey, async (req, res) => {
   try {
     const { id } = req.params;
 
+    // Validate ID is a positive integer
+    const numericId = parseInt(id, 10);
+    if (isNaN(numericId) || !Number.isSafeInteger(numericId) || numericId < 1) {
+      return res.status(400).json({
+        success: false,
+        error: {
+          code: 'invalid_id',
+          message: 'Invalid scheduled job ID'
+        }
+      });
+    }
+
     const scheduledJob = await scheduledJobService.getScheduledJobById(
-      parseInt(id),
+      numericId,
       req.user.id
     );
 
@@ -308,6 +320,19 @@ router.get('/scheduled/:id', authenticateApiKey, async (req, res) => {
 router.patch('/scheduled/:id', authenticateApiKey, async (req, res) => {
   try {
     const { id } = req.params;
+
+    // Validate ID is a positive integer
+    const numericId = parseInt(id, 10);
+    if (isNaN(numericId) || !Number.isSafeInteger(numericId) || numericId < 1) {
+      return res.status(400).json({
+        success: false,
+        error: {
+          code: 'invalid_id',
+          message: 'Invalid scheduled job ID'
+        }
+      });
+    }
+
     const { name, cron_expression, parameters, is_active } = req.body;
 
     const updateData = {};
@@ -317,7 +342,7 @@ router.patch('/scheduled/:id', authenticateApiKey, async (req, res) => {
     if (is_active !== undefined) updateData.is_active = is_active;
 
     const scheduledJob = await scheduledJobService.updateScheduledJob(
-      parseInt(id),
+      numericId,
       req.user.id,
       updateData
     );
@@ -367,7 +392,19 @@ router.delete('/scheduled/:id', authenticateApiKey, async (req, res) => {
   try {
     const { id } = req.params;
 
-    await scheduledJobService.deleteScheduledJob(parseInt(id), req.user.id);
+    // Validate ID is a positive integer
+    const numericId = parseInt(id, 10);
+    if (isNaN(numericId) || !Number.isSafeInteger(numericId) || numericId < 1) {
+      return res.status(400).json({
+        success: false,
+        error: {
+          code: 'invalid_id',
+          message: 'Invalid scheduled job ID'
+        }
+      });
+    }
+
+    await scheduledJobService.deleteScheduledJob(numericId, req.user.id);
 
     res.json({
       success: true,
