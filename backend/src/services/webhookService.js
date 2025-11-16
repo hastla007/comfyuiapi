@@ -2,6 +2,9 @@ const axios = require('axios');
 const crypto = require('crypto');
 const { pool } = require('../database');
 
+// Track pending webhook retry timers for cleanup
+const pendingRetryTimers = new Map(); // jobId -> timeoutId
+
 /**
  * Trigger webhook/callback for job completion
  */
@@ -32,6 +35,12 @@ async function triggerWebhook(callbackUrl, payload, jobId) {
     // Log successful webhook
     console.log(`Webhook sent successfully for job ${jobId}:`, response.status);
 
+    // Clear any pending retry timer for this job
+    if (pendingRetryTimers.has(jobId)) {
+      clearTimeout(pendingRetryTimers.get(jobId));
+      pendingRetryTimers.delete(jobId);
+    }
+
     // Update callback attempts
     await pool.query(
       `UPDATE jobs
@@ -61,11 +70,22 @@ async function triggerWebhook(callbackUrl, payload, jobId) {
     );
 
     if (result.rows.length > 0 && result.rows[0].callback_attempts < 3) {
+      // Clear any existing retry timer for this job
+      if (pendingRetryTimers.has(jobId)) {
+        clearTimeout(pendingRetryTimers.get(jobId));
+      }
+
       // Schedule retry after exponential backoff
       const retryDelay = Math.pow(2, result.rows[0].callback_attempts) * 1000; // 2s, 4s, 8s
-      setTimeout(() => {
-        triggerWebhook(callbackUrl, payload, jobId);
+      const timerId = setTimeout(() => {
+        pendingRetryTimers.delete(jobId);
+        triggerWebhook(callbackUrl, payload, jobId).catch(err => {
+          console.error(`Retry webhook failed for job ${jobId}:`, err);
+        });
       }, retryDelay);
+
+      // Track the timer for cleanup
+      pendingRetryTimers.set(jobId, timerId);
     }
 
     return false;
@@ -107,14 +127,24 @@ function isValidCallbackUrl(url) {
     }
 
     // Prevent SSRF attacks - block private IP ranges
-    const hostname = parsed.hostname;
+    const hostname = parsed.hostname.toLowerCase();
 
-    // Block localhost, 127.x.x.x
-    if (hostname === 'localhost' || hostname.startsWith('127.')) {
+    // Block localhost and IPv6 localhost
+    if (hostname === 'localhost' || hostname === '::1' || hostname === '0:0:0:0:0:0:0:1') {
       return false;
     }
 
-    // Block private IP ranges (10.x.x.x, 172.16-31.x.x, 192.168.x.x)
+    // Block IPv4 loopback (127.x.x.x)
+    if (hostname.startsWith('127.')) {
+      return false;
+    }
+
+    // Block IPv6 loopback variants
+    if (hostname.startsWith('::ffff:127.') || hostname.startsWith('0000:0000:0000:0000:0000:0000:0000:0001')) {
+      return false;
+    }
+
+    // Block private IPv4 ranges (10.x.x.x, 172.16-31.x.x, 192.168.x.x)
     if (
       hostname.startsWith('10.') ||
       hostname.startsWith('192.168.') ||
@@ -123,8 +153,28 @@ function isValidCallbackUrl(url) {
       return false;
     }
 
-    // Block link-local addresses (169.254.x.x)
+    // Block link-local addresses (169.254.x.x) - includes AWS metadata service
     if (hostname.startsWith('169.254.')) {
+      return false;
+    }
+
+    // Block IPv6 link-local addresses (fe80::/10)
+    if (hostname.startsWith('fe80:') || hostname.startsWith('fe80::')) {
+      return false;
+    }
+
+    // Block IPv6 unique local addresses (fc00::/7, fd00::/8)
+    if (hostname.startsWith('fc') || hostname.startsWith('fd')) {
+      return false;
+    }
+
+    // Block 0.0.0.0 and broadcast addresses
+    if (hostname === '0.0.0.0' || hostname === '255.255.255.255') {
+      return false;
+    }
+
+    // Block IPv6 unspecified address
+    if (hostname === '::' || hostname === '0:0:0:0:0:0:0:0') {
       return false;
     }
 
@@ -168,10 +218,22 @@ async function retryFailedWebhooks() {
   return result.rows.length;
 }
 
+/**
+ * Clear all pending webhook retry timers (for graceful shutdown)
+ */
+function clearAllPendingRetries() {
+  for (const [jobId, timerId] of pendingRetryTimers.entries()) {
+    clearTimeout(timerId);
+  }
+  pendingRetryTimers.clear();
+  console.log('Cleared all pending webhook retry timers');
+}
+
 module.exports = {
   triggerWebhook,
   generateWebhookSignature,
   verifyWebhookSignature,
   isValidCallbackUrl,
-  retryFailedWebhooks
+  retryFailedWebhooks,
+  clearAllPendingRetries
 };
