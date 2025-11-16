@@ -61,11 +61,10 @@ app.use(helmet({
 
 // Middleware
 // Configure CORS for security
-const corsOptions = {
-  origin: process.env.CORS_ORIGIN || 'http://localhost:8080',
-  credentials: true
-};
-app.use(cors(corsOptions));
+const { corsMiddleware, getAllowedOrigins, buildSocketCorsOptions } = require('./utils/cors');
+const allowedOrigins = getAllowedOrigins();
+logger.info('CORS allowed origins', { origins: allowedOrigins });
+app.use(corsMiddleware);
 app.use(bodyParser.json({ limit: '10mb' }));
 app.use(bodyParser.urlencoded({ extended: true, limit: '10mb' }));
 
@@ -184,14 +183,15 @@ app.use((err, req, res, next) => {
     method: req.method
   });
 
-  // Don't leak error details in production
+  // Prefer explicit messages while still withholding stack traces in production
   const isDevelopment = process.env.NODE_ENV !== 'production';
+  const safeMessage = err.publicMessage || err.message || 'An unexpected error occurred';
 
   res.status(err.status || 500).json({
     success: false,
     error: {
       code: err.code || 'internal_error',
-      message: isDevelopment ? err.message : 'An unexpected error occurred',
+      message: safeMessage,
       ...(isDevelopment && { stack: err.stack }),
       requestId: req.id
     }
@@ -238,7 +238,7 @@ async function start() {
     logger.info('Scheduler started');
 
     // Initialize WebSocket server
-    websocketService.initialize(server, corsOptions);
+    websocketService.initialize(server, buildSocketCorsOptions());
     logger.info('WebSocket server initialized');
 
     // Start container monitor
