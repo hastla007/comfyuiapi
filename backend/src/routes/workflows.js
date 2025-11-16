@@ -46,8 +46,9 @@ router.get('/:id', async (req, res) => {
 
 /**
  * POST /api/workflows - Create a new workflow
+ * Public endpoint - no authentication required for frontend access
  */
-router.post('/', authenticateApiKey, async (req, res) => {
+router.post('/', async (req, res) => {
   try {
     const { name, description, workflowJson } = req.body;
 
@@ -188,8 +189,9 @@ router.delete('/:id', requireAdmin, async (req, res) => {
 
 /**
  * POST /api/workflows/:id/assign/:containerId - Assign workflow to container
+ * Public endpoint - no authentication required for frontend access
  */
-router.post('/:id/assign/:containerId', authenticateApiKey, async (req, res) => {
+router.post('/:id/assign/:containerId', async (req, res) => {
   const client = await pool.connect();
   try {
     const { id, containerId } = req.params;
