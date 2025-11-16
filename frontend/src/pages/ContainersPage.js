@@ -3,6 +3,7 @@ import axios from 'axios';
 import ContainerList from '../components/ContainerList';
 import CreateContainer from '../components/CreateContainer';
 import { API_URL } from '../config';
+import extractErrorMessage from '../utils/errorMessage';
 import './ContainersPage.css';
 
 function ContainersPage() {
@@ -96,7 +97,7 @@ function ContainersPage() {
       }
     } catch (error) {
       console.error('Error creating container:', error);
-      alert(error.response?.data?.error || 'Failed to create container');
+      alert(extractErrorMessage(error, 'Failed to create container'));
       return false;
     }
   };
@@ -110,7 +111,7 @@ function ContainersPage() {
       }
     } catch (error) {
       console.error('Error assigning workflow:', error);
-      alert(error.response?.data?.error || 'Failed to assign workflow');
+      alert(extractErrorMessage(error, 'Failed to assign workflow'));
       return false;
     }
   };
