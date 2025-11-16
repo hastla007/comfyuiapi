@@ -8,6 +8,12 @@ const pool = new Pool({
   password: process.env.DB_PASSWORD || 'comfyui_password',
 });
 
+// Handle pool errors
+pool.on('error', (err) => {
+  console.error('Unexpected database pool error:', err);
+  // Don't exit the process, just log the error
+});
+
 async function initDatabase() {
   const client = await pool.connect();
   try {
