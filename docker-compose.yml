@@ -93,8 +93,8 @@ services:
 
   # ComfyUI Instance 2
   comfyui-2:
-    build: ./comfyui
     image: ${COMFYUI_IMAGE:-comfyuiapi-comfyui:latest}
+    # Uses the image built by comfyui-1 to avoid duplicate parallel builds
     container_name: comfyui-instance-2
     ports:
       - "8189:8188"
