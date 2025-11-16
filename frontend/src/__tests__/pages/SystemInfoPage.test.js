@@ -91,4 +91,32 @@ describe('SystemInfoPage', () => {
 
     expect(screen.getByText(/15.0%/)).toBeInTheDocument();
   });
+
+  it('displays degraded health data even when the API responds with 503', async () => {
+    axios.get
+      .mockResolvedValueOnce(buildMetricsResponse())
+      .mockResolvedValueOnce({
+        status: 503,
+        data: {
+          success: true,
+          status: 'degraded',
+          database: { status: 'unhealthy' },
+          docker: { status: 'healthy' }
+        }
+      });
+
+    await act(async () => {
+      render(<SystemInfoPage />);
+      await flushPromises();
+    });
+
+    await waitFor(() => {
+      expect(screen.queryByText('Loading system info...')).not.toBeInTheDocument();
+    });
+
+    expect(screen.queryByText(/Health:/i)).not.toBeInTheDocument();
+    expect(screen.getAllByText(/Unhealthy/i).length).toBeGreaterThan(0);
+    const healthyBadges = screen.getAllByText((content) => content === 'Healthy');
+    expect(healthyBadges.length).toBeGreaterThan(0);
+  });
 });

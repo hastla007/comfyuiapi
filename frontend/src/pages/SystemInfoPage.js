@@ -27,7 +27,7 @@ function SystemInfoPage() {
     try {
       const [metricsResult, healthResult] = await Promise.allSettled([
         axios.get(`${API_URL}/health/metrics/custom`),
-        axios.get(`${API_URL}/health`)
+        axios.get(`${API_URL}/health`, { validateStatus: () => true })
       ]);
 
       const errors = [];
@@ -58,9 +58,10 @@ function SystemInfoPage() {
         errors.push(`Metrics: ${extractErrorMessage(metricsError) || 'Failed to load metrics'}`);
       }
 
-      const healthSuccess = healthResult?.status === 'fulfilled' && healthResult.value?.data?.success;
-      if (healthSuccess) {
-        setHealth(healthResult.value.data);
+      const healthFulfilled = healthResult?.status === 'fulfilled';
+      const healthData = healthFulfilled ? healthResult.value?.data : null;
+      if (healthData?.success || healthData?.status) {
+        setHealth(healthData);
       } else if (healthResult) {
         const healthError = healthResult.status === 'rejected'
           ? healthResult.reason

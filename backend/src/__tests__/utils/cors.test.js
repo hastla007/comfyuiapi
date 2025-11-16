@@ -25,8 +25,15 @@ describe('CORS utilities', () => {
       'http://localhost',
       'http://localhost:8080',
       'http://localhost:8081',
+      'http://localhost:3006',
       'http://localhost:3000',
-      'http://localhost:5173'
+      'http://localhost:5173',
+      'http://127.0.0.1',
+      'http://127.0.0.1:8080',
+      'http://127.0.0.1:8081',
+      'http://127.0.0.1:3006',
+      'http://127.0.0.1:3000',
+      'http://127.0.0.1:5173'
     ]);
   });
 
@@ -88,5 +95,32 @@ describe('CORS utilities', () => {
       origin: '*',
       credentials: true
     });
+  });
+
+  it('allows any localhost variant when localhost is configured', async () => {
+    jest.resetModules();
+    const { corsMiddleware: middleware } = require('../../utils/cors');
+
+    const app = express();
+    app.use(middleware);
+    app.get('/test', (req, res) => res.json({ ok: true }));
+
+    const response = await request(app).get('/test').set('Origin', 'http://127.0.0.1:9999');
+    expect(response.status).toBe(200);
+    expect(response.headers['access-control-allow-origin']).toBe('http://127.0.0.1:9999');
+  });
+
+  it('rejects unknown origins when no localhost defaults are present', async () => {
+    process.env.CORS_ORIGINS = 'http://example.com';
+    jest.resetModules();
+    const { corsMiddleware: middleware } = require('../../utils/cors');
+
+    const app = express();
+    app.use(middleware);
+    app.get('/test', (req, res) => res.json({ ok: true }));
+
+    const response = await request(app).get('/test').set('Origin', 'http://malicious.test');
+    expect(response.status).toBe(500);
+    expect(response.error).toBeDefined();
   });
 });
