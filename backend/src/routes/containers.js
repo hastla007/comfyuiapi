@@ -113,14 +113,30 @@ router.post('/', authenticateApiKey, async (req, res) => {
 
       // Get next instance ID
       const result = await client.query('SELECT MAX(id) as max_id FROM containers');
-      const instanceId = (result.rows.length > 0 && result.rows[0] ? result.rows[0].max_id || 0 : 0) + 1;
+      let instanceId = (result.rows.length > 0 && result.rows[0] ? result.rows[0].max_id || 0 : 0) + 1;
 
-      // Validate instanceId is within reasonable range
-      if (instanceId < 1 || instanceId > 100000) {
+      // Validate instanceId is a safe integer and within reasonable range
+      // Must validate BEFORE using it in any path construction
+      if (!Number.isSafeInteger(instanceId) || instanceId < 1 || instanceId > 100000) {
         client.release();
         return res.status(500).json({
           success: false,
           error: 'Instance ID out of valid range'
+        });
+      }
+
+      // Ensure instanceId is an integer (defense in depth)
+      instanceId = Math.floor(instanceId);
+
+      // Construct and validate workflow path to prevent path traversal
+      const workflowPath = path.resolve('/app/workflows', `instance-${instanceId}`);
+
+      // Verify the resolved path is still within /app/workflows (prevent path traversal)
+      if (!workflowPath.startsWith('/app/workflows/')) {
+        client.release();
+        return res.status(500).json({
+          success: false,
+          error: 'Invalid workflow path'
         });
       }
 
@@ -129,7 +145,7 @@ router.post('/', authenticateApiKey, async (req, res) => {
         name,
         port,
         instanceId,
-        workflowPath: `/app/workflows/instance-${instanceId}`
+        workflowPath
       });
       containerId = container.id;
 
@@ -143,10 +159,17 @@ router.post('/', authenticateApiKey, async (req, res) => {
       if (workflowId) {
         const workflow = await client.query('SELECT workflow_json FROM workflows WHERE id = $1', [workflowId]);
         if (workflow.rows.length > 0) {
-          const workflowDir = path.join('/app/workflows', `instance-${instanceId}`);
-          const workflowFile = path.join(workflowDir, 'workflow.json');
-          await fs.mkdir(workflowDir, { recursive: true });
-          await fs.writeFile(workflowFile, JSON.stringify(workflow.rows[0].workflow_json, null, 2));
+          // Use the already validated workflowPath
+          const workflowFile = path.join(workflowPath, 'workflow.json');
+
+          // Additional safety check: ensure workflowFile is within workflowPath
+          const resolvedWorkflowFile = path.resolve(workflowFile);
+          if (!resolvedWorkflowFile.startsWith(workflowPath + path.sep)) {
+            throw new Error('Invalid workflow file path');
+          }
+
+          await fs.mkdir(workflowPath, { recursive: true });
+          await fs.writeFile(resolvedWorkflowFile, JSON.stringify(workflow.rows[0].workflow_json, null, 2));
         } else {
           throw new Error('Workflow not found');
         }

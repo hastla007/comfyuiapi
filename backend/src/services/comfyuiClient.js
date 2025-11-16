@@ -13,6 +13,10 @@ class ComfyUIClient extends EventEmitter {
     this.ws = null;
     this.clientId = this.generateClientId();
     this.activePrompts = new Map(); // promptId -> callback
+    this.reconnectAttempts = 0;
+    this.maxReconnectAttempts = 10;
+    this.reconnectTimer = null;
+    this.shouldReconnect = true; // Flag to control reconnection behavior
   }
 
   /**
@@ -30,12 +34,11 @@ class ComfyUIClient extends EventEmitter {
       const wsUrl = `${this.baseUrl.replace('http', 'ws')}/ws?clientId=${this.clientId}`;
 
       this.ws = new WebSocket(wsUrl);
-      this.reconnectAttempts = this.reconnectAttempts || 0;
-      this.maxReconnectAttempts = 10;
 
       this.ws.on('open', () => {
         console.log(`WebSocket connected to ${wsUrl}`);
         this.reconnectAttempts = 0; // Reset on successful connection
+        this.shouldReconnect = true; // Re-enable reconnection on successful connect
         resolve();
       });
 
@@ -57,12 +60,25 @@ class ComfyUIClient extends EventEmitter {
         console.log('WebSocket connection closed');
         this.emit('disconnected');
 
-        // Auto-reconnect with exponential backoff, but limit attempts
-        if (this.reconnectAttempts < this.maxReconnectAttempts) {
+        // Clear any existing reconnect timer
+        if (this.reconnectTimer) {
+          clearTimeout(this.reconnectTimer);
+          this.reconnectTimer = null;
+        }
+
+        // Auto-reconnect with exponential backoff, but only if shouldReconnect is true
+        if (this.shouldReconnect && this.reconnectAttempts < this.maxReconnectAttempts) {
           this.reconnectAttempts++;
           const backoffDelay = Math.min(1000 * Math.pow(2, this.reconnectAttempts), 30000); // Max 30s
           console.log(`Reconnecting in ${backoffDelay}ms (attempt ${this.reconnectAttempts}/${this.maxReconnectAttempts})`);
-          setTimeout(() => this.connectWebSocket(), backoffDelay);
+          this.reconnectTimer = setTimeout(() => {
+            this.reconnectTimer = null;
+            this.connectWebSocket().catch(err => {
+              console.error('Reconnection failed:', err);
+            });
+          }, backoffDelay);
+        } else if (!this.shouldReconnect) {
+          console.log('Auto-reconnect disabled. Will not reconnect.');
         } else {
           console.error('Max reconnection attempts reached. Will not reconnect.');
           this.emit('max_reconnect_attempts_reached');
@@ -181,8 +197,15 @@ class ComfyUIClient extends EventEmitter {
       if (typeof obj === 'string') {
         // Replace {{param}} with value
         return obj.replace(/\{\{(\w+)\}\}/g, (match, key) => {
-          return parameters[key] !== undefined ? parameters[key] : match;
+          if (parameters[key] !== undefined) {
+            // Convert parameter to string for substitution
+            return String(parameters[key]);
+          }
+          return match;
         });
+      } else if (typeof obj === 'number' || typeof obj === 'boolean') {
+        // Preserve numbers and booleans as-is
+        return obj;
       } else if (Array.isArray(obj)) {
         return obj.map(item => substitute(item));
       } else if (typeof obj === 'object' && obj !== null) {
@@ -319,10 +342,25 @@ class ComfyUIClient extends EventEmitter {
    * Disconnect WebSocket
    */
   disconnect() {
+    // Disable auto-reconnection
+    this.shouldReconnect = false;
+
+    // Clear any pending reconnect timer
+    if (this.reconnectTimer) {
+      clearTimeout(this.reconnectTimer);
+      this.reconnectTimer = null;
+    }
+
+    // Close WebSocket connection
     if (this.ws) {
+      // Remove all listeners to prevent memory leaks
+      this.ws.removeAllListeners();
       this.ws.close();
       this.ws = null;
     }
+
+    // Clear active prompts
+    this.activePrompts.clear();
   }
 }
 

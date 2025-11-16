@@ -231,16 +231,47 @@ router.post('/:id/assign/:containerId', authenticateApiKey, async (req, res) => 
       return res.status(404).json({ success: false, error: 'Workflow not found' });
     }
 
-    // Sanitize instance ID to prevent path traversal
-    const sanitizedId = String(instanceId).replace(/[^0-9]/g, '');
+    // Validate and sanitize instance ID to prevent path traversal
+    if (!Number.isSafeInteger(instanceId) || instanceId < 1 || instanceId > 100000) {
+      await client.query('ROLLBACK');
+      client.release();
+      return res.status(500).json({
+        success: false,
+        error: 'Invalid instance ID'
+      });
+    }
 
-    // Write workflow file to container's workflow directory
-    const workflowDir = path.join('/app/workflows', `instance-${sanitizedId}`);
+    const sanitizedId = Math.floor(instanceId);
+
+    // Construct and validate workflow path to prevent path traversal
+    const workflowDir = path.resolve('/app/workflows', `instance-${sanitizedId}`);
+
+    // Verify the resolved path is still within /app/workflows
+    if (!workflowDir.startsWith('/app/workflows/')) {
+      await client.query('ROLLBACK');
+      client.release();
+      return res.status(500).json({
+        success: false,
+        error: 'Invalid workflow path'
+      });
+    }
+
     const workflowFile = path.join(workflowDir, 'workflow.json');
+
+    // Additional safety check: ensure workflowFile is within workflowDir
+    const resolvedWorkflowFile = path.resolve(workflowFile);
+    if (!resolvedWorkflowFile.startsWith(workflowDir + path.sep)) {
+      await client.query('ROLLBACK');
+      client.release();
+      return res.status(500).json({
+        success: false,
+        error: 'Invalid workflow file path'
+      });
+    }
 
     try {
       await fs.mkdir(workflowDir, { recursive: true });
-      await fs.writeFile(workflowFile, JSON.stringify(workflow.rows[0].workflow_json, null, 2));
+      await fs.writeFile(resolvedWorkflowFile, JSON.stringify(workflow.rows[0].workflow_json, null, 2));
 
       // Commit transaction on success
       await client.query('COMMIT');

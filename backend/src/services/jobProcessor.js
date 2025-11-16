@@ -1,5 +1,6 @@
 const { pool } = require('../database');
 const { createClient } = require('./comfyuiClient');
+const { triggerWebhook } = require('./webhookService');
 const fs = require('fs').promises;
 const path = require('path');
 
@@ -300,7 +301,7 @@ class JobProcessor {
    * Mark job as completed
    */
   async completeJob(jobId, outputUrl) {
-    await pool.query(`
+    const result = await pool.query(`
       UPDATE jobs
       SET status = 'completed',
           output_image_url = $1,
@@ -308,21 +309,59 @@ class JobProcessor {
           completed_at = CURRENT_TIMESTAMP,
           updated_at = CURRENT_TIMESTAMP
       WHERE id = $2
+      RETURNING job_id, callback_url, model, request_payload
     `, [outputUrl, jobId]);
+
+    // Trigger webhook if callback_url exists
+    if (result.rows.length > 0 && result.rows[0].callback_url) {
+      const job = result.rows[0];
+      await triggerWebhook(
+        job.callback_url,
+        {
+          job_id: job.job_id,
+          status: 'completed',
+          model: job.model,
+          result: { output_url: outputUrl },
+          completed_at: new Date().toISOString()
+        },
+        job.job_id
+      ).catch(err => {
+        console.error(`Failed to trigger webhook for job ${job.job_id}:`, err);
+      });
+    }
   }
 
   /**
    * Handle job error
    */
   async handleJobError(jobId, errorMessage) {
-    await pool.query(`
+    const result = await pool.query(`
       UPDATE jobs
       SET status = 'failed',
           error_message = $1,
           completed_at = CURRENT_TIMESTAMP,
           updated_at = CURRENT_TIMESTAMP
       WHERE id = $2
+      RETURNING job_id, callback_url, model, request_payload
     `, [errorMessage, jobId]);
+
+    // Trigger webhook if callback_url exists
+    if (result.rows.length > 0 && result.rows[0].callback_url) {
+      const job = result.rows[0];
+      await triggerWebhook(
+        job.callback_url,
+        {
+          job_id: job.job_id,
+          status: 'failed',
+          model: job.model,
+          error: { message: errorMessage },
+          completed_at: new Date().toISOString()
+        },
+        job.job_id
+      ).catch(err => {
+        console.error(`Failed to trigger webhook for job ${job.job_id}:`, err);
+      });
+    }
   }
 
   /**
@@ -331,21 +370,37 @@ class JobProcessor {
   async cancelJob(jobId) {
     const processingInfo = this.processingJobs.get(jobId);
 
-    if (processingInfo) {
-      // Cancel the prompt in ComfyUI
-      await processingInfo.client.cancelPrompt(processingInfo.promptId);
-      processingInfo.client.disconnect();
-      this.processingJobs.delete(jobId);
-    }
-
-    // Update job status
-    await pool.query(`
+    // Update job status ONLY if it's still in a cancellable state
+    // This prevents race conditions where job completes while cancellation is in progress
+    const result = await pool.query(`
       UPDATE jobs
       SET status = 'cancelled',
           completed_at = CURRENT_TIMESTAMP,
           updated_at = CURRENT_TIMESTAMP
-      WHERE id = $1
+      WHERE id = $1 AND status IN ('queued', 'processing')
+      RETURNING id
     `, [jobId]);
+
+    // If the update affected no rows, the job was already in a final state
+    if (result.rows.length === 0) {
+      console.log(`Cannot cancel job ${jobId} - already in final state`);
+      return false;
+    }
+
+    // Only cancel in ComfyUI if it's currently being processed
+    if (processingInfo) {
+      try {
+        // Cancel the prompt in ComfyUI
+        await processingInfo.client.cancelPrompt(processingInfo.promptId);
+        processingInfo.client.disconnect();
+      } catch (error) {
+        console.error(`Error cancelling ComfyUI prompt for job ${jobId}:`, error);
+      } finally {
+        this.processingJobs.delete(jobId);
+      }
+    }
+
+    return true;
   }
 
   /**
