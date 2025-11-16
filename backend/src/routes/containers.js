@@ -38,7 +38,7 @@ router.get('/', async (req, res) => {
     res.json({ success: true, containers });
   } catch (error) {
     console.error('Error getting containers:', error);
-    res.status(500).json({ success: false, error: error.message });
+    res.status(500).json({ success: false, error: 'Failed to retrieve containers' });
   }
 });
 
@@ -55,6 +55,31 @@ router.post('/', async (req, res) => {
     // Validate input
     if (!name || !port) {
       return res.status(400).json({ success: false, error: 'Name and port are required' });
+    }
+
+    // Validate and sanitize container name
+    // Docker container names must match: [a-zA-Z0-9][a-zA-Z0-9_.-]*
+    if (typeof name !== 'string' || name.length < 1 || name.length > 255) {
+      return res.status(400).json({
+        success: false,
+        error: 'Container name must be a string between 1 and 255 characters'
+      });
+    }
+
+    const namePattern = /^[a-zA-Z0-9][a-zA-Z0-9_.-]*$/;
+    if (!namePattern.test(name)) {
+      return res.status(400).json({
+        success: false,
+        error: 'Container name must start with alphanumeric character and contain only alphanumeric, underscore, period, or hyphen'
+      });
+    }
+
+    // Validate port is an integer
+    if (typeof port !== 'number' || !Number.isInteger(port)) {
+      return res.status(400).json({
+        success: false,
+        error: 'Port must be a valid integer'
+      });
     }
 
     // Validate port range
@@ -75,6 +100,14 @@ router.post('/', async (req, res) => {
     const result = await client.query('SELECT MAX(id) as max_id FROM containers');
     const instanceId = (result.rows[0].max_id || 0) + 1;
 
+    // Validate instanceId is within reasonable range
+    if (instanceId < 1 || instanceId > 100000) {
+      return res.status(500).json({
+        success: false,
+        error: 'Instance ID out of valid range'
+      });
+    }
+
     // Create Docker container
     const container = await createContainer({
       name,
@@ -92,16 +125,14 @@ router.post('/', async (req, res) => {
 
     // If workflowId is provided, write workflow file to container's directory
     if (workflowId) {
-      try {
-        const workflow = await client.query('SELECT workflow_json FROM workflows WHERE id = $1', [workflowId]);
-        if (workflow.rows.length > 0) {
-          const workflowDir = path.join('/app/workflows', `instance-${instanceId}`);
-          const workflowFile = path.join(workflowDir, 'workflow.json');
-          await fs.mkdir(workflowDir, { recursive: true });
-          await fs.writeFile(workflowFile, JSON.stringify(workflow.rows[0].workflow_json, null, 2));
-        }
-      } catch (fsError) {
-        console.error('Error writing workflow file during container creation:', fsError);
+      const workflow = await client.query('SELECT workflow_json FROM workflows WHERE id = $1', [workflowId]);
+      if (workflow.rows.length > 0) {
+        const workflowDir = path.join('/app/workflows', `instance-${instanceId}`);
+        const workflowFile = path.join(workflowDir, 'workflow.json');
+        await fs.mkdir(workflowDir, { recursive: true });
+        await fs.writeFile(workflowFile, JSON.stringify(workflow.rows[0].workflow_json, null, 2));
+      } else {
+        throw new Error('Workflow not found');
       }
     }
 
@@ -147,7 +178,7 @@ router.post('/', async (req, res) => {
       }
     }
 
-    res.status(500).json({ success: false, error: error.message });
+    res.status(500).json({ success: false, error: 'Failed to create container' });
   } finally {
     client.release();
   }
@@ -167,7 +198,7 @@ router.post('/:id/start', async (req, res) => {
     res.json({ success: true, message: 'Container started' });
   } catch (error) {
     console.error('Error starting container:', error);
-    res.status(500).json({ success: false, error: error.message });
+    res.status(500).json({ success: false, error: 'Failed to start container' });
   }
 });
 
@@ -185,7 +216,7 @@ router.post('/:id/stop', async (req, res) => {
     res.json({ success: true, message: 'Container stopped' });
   } catch (error) {
     console.error('Error stopping container:', error);
-    res.status(500).json({ success: false, error: error.message });
+    res.status(500).json({ success: false, error: 'Failed to stop container' });
   }
 });
 
@@ -203,7 +234,7 @@ router.post('/:id/restart', async (req, res) => {
     res.json({ success: true, message: 'Container restarted' });
   } catch (error) {
     console.error('Error restarting container:', error);
-    res.status(500).json({ success: false, error: error.message });
+    res.status(500).json({ success: false, error: 'Failed to restart container' });
   }
 });
 
@@ -218,7 +249,7 @@ router.delete('/:id', async (req, res) => {
     res.json({ success: true, message: 'Container removed' });
   } catch (error) {
     console.error('Error removing container:', error);
-    res.status(500).json({ success: false, error: error.message });
+    res.status(500).json({ success: false, error: 'Failed to remove container' });
   }
 });
 
@@ -230,11 +261,13 @@ router.get('/:id/logs', async (req, res) => {
     const { id } = req.params;
     const { tail = 100 } = req.query;
     const tailNum = parseInt(tail, 10);
-    const logs = await getContainerLogs(id, isNaN(tailNum) ? 100 : tailNum);
+    // Prevent DoS by bounding tail parameter between 1 and 10000
+    const boundedTail = isNaN(tailNum) ? 100 : Math.min(Math.max(tailNum, 1), 10000);
+    const logs = await getContainerLogs(id, boundedTail);
     res.json({ success: true, logs });
   } catch (error) {
     console.error('Error getting logs:', error);
-    res.status(500).json({ success: false, error: error.message });
+    res.status(500).json({ success: false, error: 'Failed to retrieve container logs' });
   }
 });
 
@@ -248,7 +281,7 @@ router.get('/:id/stats', async (req, res) => {
     res.json({ success: true, stats });
   } catch (error) {
     console.error('Error getting stats:', error);
-    res.status(500).json({ success: false, error: error.message });
+    res.status(500).json({ success: false, error: 'Failed to retrieve container stats' });
   }
 });
 
