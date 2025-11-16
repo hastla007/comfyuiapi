@@ -5,15 +5,16 @@ const crypto = require('crypto');
  * Simple token-based authentication for admin endpoints
  */
 
-// Require ADMIN_TOKEN to be set in environment
-if (!process.env.ADMIN_TOKEN) {
+// Require ADMIN_TOKEN to be set in environment (except in test environment)
+if (!process.env.ADMIN_TOKEN && process.env.NODE_ENV !== 'test') {
   console.error('FATAL: ADMIN_TOKEN environment variable is not set.');
   console.error('Please set ADMIN_TOKEN in your .env file or environment variables.');
   console.error('You can generate a secure token using: node -e "console.log(require(\'crypto\').randomBytes(32).toString(\'hex\'))"');
   process.exit(1);
 }
 
-const ADMIN_TOKEN = process.env.ADMIN_TOKEN;
+// Use a test token in test environment if ADMIN_TOKEN is not set
+const ADMIN_TOKEN = process.env.ADMIN_TOKEN || (process.env.NODE_ENV === 'test' ? 'test-admin-token-1234567890' : '');
 
 /**
  * Middleware to check admin authentication
