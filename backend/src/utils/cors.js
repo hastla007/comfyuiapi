@@ -42,7 +42,6 @@ const corsOptions = (req, callback) => {
 
 module.exports = {
   corsMiddleware: cors(corsOptions),
-  corsOptions,
   getAllowedOrigins,
   isOriginAllowed,
   parseOrigins

@@ -93,6 +93,7 @@ services:
 
   # ComfyUI Instance 2
   comfyui-2:
+    build: ./comfyui
     image: ${COMFYUI_IMAGE:-comfyuiapi-comfyui:latest}
     container_name: comfyui-instance-2
     ports:
