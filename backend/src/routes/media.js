@@ -1,5 +1,6 @@
 const express = require('express');
 const router = express.Router();
+const path = require('path');
 const mediaStorage = require('../services/mediaStorage');
 const logger = require('../utils/logger');
 
@@ -10,6 +11,22 @@ const logger = require('../utils/logger');
 router.get('/:filename', async (req, res) => {
   try {
     const { filename } = req.params;
+
+    // Validate filename to prevent path traversal attacks
+    if (!filename || typeof filename !== 'string') {
+      return res.status(400).json({ error: 'Invalid filename' });
+    }
+
+    // Check for path traversal attempts
+    if (filename.includes('..') || filename.includes('/') || filename.includes('\\')) {
+      logger.warn(`Path traversal attempt detected: ${filename}`);
+      return res.status(400).json({ error: 'Invalid filename' });
+    }
+
+    // Only allow alphanumeric characters, hyphens, underscores, and dots
+    if (!/^[a-zA-Z0-9._-]+$/.test(filename)) {
+      return res.status(400).json({ error: 'Invalid filename format' });
+    }
 
     // Get the image
     const buffer = await mediaStorage.getImage(filename);
