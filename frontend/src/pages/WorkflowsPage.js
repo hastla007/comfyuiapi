@@ -2,6 +2,7 @@ import React, { useState, useEffect } from 'react';
 import axios from 'axios';
 import WorkflowManager from '../components/WorkflowManager';
 import { API_URL } from '../config';
+import { extractErrorMessage } from '../utils/errorMessage';
 import './WorkflowsPage.css';
 
 function WorkflowsPage() {
@@ -21,7 +22,7 @@ function WorkflowsPage() {
       }
     } catch (error) {
       console.error('Error fetching workflows:', error);
-      setError('Unable to load workflows. Check API connectivity and CORS settings.');
+      setError(extractErrorMessage(error) || 'Unable to load workflows. Check API connectivity and CORS settings.');
     }
   };
 

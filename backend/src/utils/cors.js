@@ -11,7 +11,9 @@ const parseOrigins = (rawOrigins) => {
 const getAllowedOrigins = () => {
   const configured = parseOrigins(process.env.CORS_ORIGINS || process.env.CORS_ORIGIN);
   const defaults = [
+    'http://localhost',
     'http://localhost:8080',
+    'http://localhost:8081',
     'http://localhost:3000',
     'http://localhost:5173'
   ];

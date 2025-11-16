@@ -4,6 +4,7 @@ import { LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, Legend, Responsi
 import { RefreshCw, Cpu, HardDrive, Activity, Server, Database, CheckCircle, XCircle } from 'lucide-react';
 import { API_URL } from '../config';
 import './SystemInfoPage.css';
+import { extractErrorMessage } from '../utils/errorMessage';
 
 function SystemInfoPage() {
   const [metrics, setMetrics] = useState({});
@@ -24,13 +25,16 @@ function SystemInfoPage() {
 
   const fetchSystemInfo = async () => {
     try {
-      const [metricsRes, healthRes] = await Promise.all([
+      const [metricsResult, healthResult] = await Promise.allSettled([
         axios.get(`${API_URL}/health/metrics/custom`),
         axios.get(`${API_URL}/health`)
       ]);
 
-      if (metricsRes.data.success) {
-        const newMetrics = metricsRes.data.metrics;
+      const errors = [];
+
+      const metricsSuccess = metricsResult?.status === 'fulfilled' && metricsResult.value?.data?.success;
+      if (metricsSuccess) {
+        const newMetrics = metricsResult.value.data.metrics;
         setMetrics(newMetrics);
         setError('');
 
@@ -47,14 +51,27 @@ function SystemInfoPage() {
           ].slice(-20); // Keep last 20 entries
           return updated;
         });
+      } else if (metricsResult) {
+        const metricsError = metricsResult.status === 'rejected'
+          ? metricsResult.reason
+          : metricsResult.value?.data?.error || metricsResult.value?.data;
+        errors.push(`Metrics: ${extractErrorMessage(metricsError) || 'Failed to load metrics'}`);
       }
 
-      if (healthRes.data.success) {
-        setHealth(healthRes.data);
+      const healthSuccess = healthResult?.status === 'fulfilled' && healthResult.value?.data?.success;
+      if (healthSuccess) {
+        setHealth(healthResult.value.data);
+      } else if (healthResult) {
+        const healthError = healthResult.status === 'rejected'
+          ? healthResult.reason
+          : healthResult.value?.data?.error || healthResult.value?.data;
+        errors.push(`Health: ${extractErrorMessage(healthError) || 'Failed to load health status'}`);
       }
+
+      setError(errors.join(' | '));
     } catch (error) {
       console.error('Error fetching system info:', error);
-      setError('Unable to load system information. Check API connectivity and CORS settings.');
+      setError(extractErrorMessage(error) || 'Unable to load system information. Check API connectivity and CORS settings.');
     } finally {
       setLoading(false);
     }
