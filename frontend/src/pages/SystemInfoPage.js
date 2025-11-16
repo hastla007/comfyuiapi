@@ -24,7 +24,7 @@ function SystemInfoPage() {
   const fetchSystemInfo = async () => {
     try {
       const [metricsRes, healthRes] = await Promise.all([
-        axios.get(`${API_URL}/health/metrics`),
+        axios.get(`${API_URL}/health/metrics/custom`),
         axios.get(`${API_URL}/health`)
       ]);
 

@@ -18,8 +18,9 @@ const {
 
 /**
  * GET /api/containers - Get all containers
+ * Public endpoint - no authentication required for read access
  */
-router.get('/', authenticateApiKey, async (req, res) => {
+router.get('/', async (req, res) => {
   try {
     const dockerContainers = await getAllContainers();
     const dbContainers = await pool.query('SELECT * FROM containers ORDER BY created_at DESC');
@@ -299,8 +300,9 @@ router.delete('/:id', requireAdmin, async (req, res) => {
 
 /**
  * GET /api/containers/:id/logs - Get container logs
+ * Public endpoint - no authentication required for read access
  */
-router.get('/:id/logs', authenticateApiKey, async (req, res) => {
+router.get('/:id/logs', async (req, res) => {
   try {
     const { id } = req.params;
     const { tail = 100 } = req.query;
@@ -317,8 +319,9 @@ router.get('/:id/logs', authenticateApiKey, async (req, res) => {
 
 /**
  * GET /api/containers/:id/stats - Get container stats
+ * Public endpoint - no authentication required for read access
  */
-router.get('/:id/stats', authenticateApiKey, async (req, res) => {
+router.get('/:id/stats', async (req, res) => {
   try {
     const { id } = req.params;
     const stats = await getContainerStats(id);
