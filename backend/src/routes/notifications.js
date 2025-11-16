@@ -38,6 +38,10 @@ router.get('/', authenticateApiKey, async (req, res) => {
   try {
     const { is_read, limit = 50, offset = 0 } = req.query;
 
+    // Validate and bound limit and offset
+    const validLimit = Math.min(Math.max(parseInt(limit, 10) || 50, 1), 1000);
+    const validOffset = Math.max(parseInt(offset, 10) || 0, 0);
+
     let query = 'SELECT * FROM notifications WHERE user_id = $1';
     const params = [req.user.id];
     let paramIndex = 2;
@@ -49,7 +53,7 @@ router.get('/', authenticateApiKey, async (req, res) => {
     }
 
     query += ` ORDER BY created_at DESC LIMIT $${paramIndex} OFFSET $${paramIndex + 1}`;
-    params.push(parseInt(limit), parseInt(offset));
+    params.push(validLimit, validOffset);
 
     const result = await pool.query(query, params);
 

@@ -384,6 +384,22 @@ function getActiveSchedulesCount() {
   return activeSchedules.size;
 }
 
+/**
+ * Start the scheduled job service (alias for initializeScheduledJobs)
+ * Provides consistent interface with other services
+ */
+function start() {
+  return initializeScheduledJobs();
+}
+
+/**
+ * Stop the scheduled job service (alias for shutdownScheduledJobs)
+ * Provides consistent interface with other services
+ */
+function stop() {
+  shutdownScheduledJobs();
+}
+
 module.exports = {
   createScheduledJob,
   listScheduledJobs,
@@ -393,5 +409,7 @@ module.exports = {
   executeScheduledJob,
   initializeScheduledJobs,
   shutdownScheduledJobs,
-  getActiveSchedulesCount
+  getActiveSchedulesCount,
+  start,
+  stop
 };
