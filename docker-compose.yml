@@ -6,7 +6,7 @@ services:
     build: ./backend
     container_name: comfyui-api
     ports:
-      - "3000:3000"
+      - "3006:3000"
     volumes:
       - /var/run/docker.sock:/var/run/docker.sock
       - ./workflows:/app/workflows
@@ -33,9 +33,9 @@ services:
     build: ./frontend
     container_name: comfyui-frontend
     ports:
-      - "8080:80"
+      - "8081:80"
     environment:
-      - API_URL=http://api:3000
+      - API_URL=http://api:3003
     networks:
       - comfyui-network
     depends_on:
