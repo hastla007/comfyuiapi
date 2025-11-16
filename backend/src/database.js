@@ -5,7 +5,16 @@ const pool = new Pool({
   port: process.env.DB_PORT || 5432,
   database: process.env.DB_NAME || 'comfyui',
   user: process.env.DB_USER || 'comfyui',
-  password: process.env.DB_PASSWORD || 'comfyui_password',
+  password: process.env.DB_PASSWORD,
+
+  // Connection pool configuration
+  max: parseInt(process.env.DB_POOL_MAX) || 20, // Maximum number of clients in the pool
+  min: parseInt(process.env.DB_POOL_MIN) || 2, // Minimum number of clients in the pool
+  idleTimeoutMillis: parseInt(process.env.DB_IDLE_TIMEOUT) || 30000, // Close idle clients after 30 seconds
+  connectionTimeoutMillis: parseInt(process.env.DB_CONNECTION_TIMEOUT) || 10000, // Return error after 10 seconds if connection not established
+
+  // Statement timeout (prevent long-running queries)
+  statement_timeout: parseInt(process.env.DB_STATEMENT_TIMEOUT) || 60000, // 60 seconds
 });
 
 // Handle pool errors

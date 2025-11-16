@@ -4,15 +4,15 @@ const { pool } = require('../database');
 const {
   createApiKey,
   revokeApiKey,
-  listApiKeys
+  listApiKeys,
+  requireAdmin
 } = require('../middleware/auth');
 
 /**
  * POST /api/admin/api-keys - Create a new API key
  * This is a protected endpoint that should only be accessible to administrators
- * In production, add proper admin authentication middleware
  */
-router.post('/', async (req, res) => {
+router.post('/', requireAdmin, async (req, res) => {
   try {
     const { email, name, keyName, permissions, rateLimit, expiresAt } = req.body;
 
@@ -78,7 +78,7 @@ router.post('/', async (req, res) => {
 /**
  * GET /api/admin/api-keys/:userId - List API keys for a user
  */
-router.get('/:userId', async (req, res) => {
+router.get('/:userId', requireAdmin, async (req, res) => {
   try {
     const userId = parseInt(req.params.userId, 10);
 
@@ -113,7 +113,7 @@ router.get('/:userId', async (req, res) => {
 /**
  * DELETE /api/admin/api-keys/:keyId - Revoke an API key
  */
-router.delete('/:keyId', async (req, res) => {
+router.delete('/:keyId', requireAdmin, async (req, res) => {
   try {
     const keyId = parseInt(req.params.keyId, 10);
 
@@ -158,7 +158,7 @@ router.delete('/:keyId', async (req, res) => {
 /**
  * GET /api/admin/users - List all users
  */
-router.get('/users/list', async (req, res) => {
+router.get('/users/list', requireAdmin, async (req, res) => {
   try {
     const result = await pool.query(
       `SELECT id, email, name, credits, created_at

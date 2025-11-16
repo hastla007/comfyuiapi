@@ -3,6 +3,7 @@ const router = express.Router();
 const fs = require('fs').promises;
 const path = require('path');
 const { pool } = require('../database');
+const { authenticateApiKey, requireAdmin } = require('../middleware/auth');
 const {
   getAllContainers,
   createContainer,
@@ -17,7 +18,7 @@ const {
 /**
  * GET /api/containers - Get all containers
  */
-router.get('/', async (req, res) => {
+router.get('/', authenticateApiKey, async (req, res) => {
   try {
     const dockerContainers = await getAllContainers();
     const dbContainers = await pool.query('SELECT * FROM containers ORDER BY created_at DESC');
@@ -45,7 +46,7 @@ router.get('/', async (req, res) => {
 /**
  * POST /api/containers - Create a new container
  */
-router.post('/', async (req, res) => {
+router.post('/', authenticateApiKey, async (req, res) => {
   let containerId = null;
 
   try {
@@ -206,7 +207,7 @@ router.post('/', async (req, res) => {
 /**
  * POST /api/containers/:id/start - Start a container
  */
-router.post('/:id/start', async (req, res) => {
+router.post('/:id/start', authenticateApiKey, async (req, res) => {
   try {
     const { id } = req.params;
     await startContainer(id);
@@ -224,7 +225,7 @@ router.post('/:id/start', async (req, res) => {
 /**
  * POST /api/containers/:id/stop - Stop a container
  */
-router.post('/:id/stop', async (req, res) => {
+router.post('/:id/stop', authenticateApiKey, async (req, res) => {
   try {
     const { id } = req.params;
     await stopContainer(id);
@@ -242,7 +243,7 @@ router.post('/:id/stop', async (req, res) => {
 /**
  * POST /api/containers/:id/restart - Restart a container
  */
-router.post('/:id/restart', async (req, res) => {
+router.post('/:id/restart', authenticateApiKey, async (req, res) => {
   try {
     const { id } = req.params;
     await restartContainer(id);
@@ -260,7 +261,7 @@ router.post('/:id/restart', async (req, res) => {
 /**
  * DELETE /api/containers/:id - Remove a container
  */
-router.delete('/:id', async (req, res) => {
+router.delete('/:id', requireAdmin, async (req, res) => {
   try {
     const { id } = req.params;
     await removeContainer(id, true);
@@ -275,7 +276,7 @@ router.delete('/:id', async (req, res) => {
 /**
  * GET /api/containers/:id/logs - Get container logs
  */
-router.get('/:id/logs', async (req, res) => {
+router.get('/:id/logs', authenticateApiKey, async (req, res) => {
   try {
     const { id } = req.params;
     const { tail = 100 } = req.query;
@@ -293,7 +294,7 @@ router.get('/:id/logs', async (req, res) => {
 /**
  * GET /api/containers/:id/stats - Get container stats
  */
-router.get('/:id/stats', async (req, res) => {
+router.get('/:id/stats', authenticateApiKey, async (req, res) => {
   try {
     const { id } = req.params;
     const stats = await getContainerStats(id);

@@ -2,6 +2,7 @@ const express = require('express');
 const cors = require('cors');
 const bodyParser = require('body-parser');
 const rateLimit = require('express-rate-limit');
+const helmet = require('helmet');
 const swaggerUi = require('swagger-ui-express');
 const containerRoutes = require('./routes/containers');
 const workflowRoutes = require('./routes/workflows');
@@ -20,9 +21,27 @@ const scheduler = require('./services/scheduler');
 const logger = require('./utils/logger');
 const { metricsMiddleware } = require('./middleware/metrics');
 const swaggerSpec = require('./config/swagger');
+const crypto = require('crypto');
 
 const app = express();
 const PORT = process.env.PORT || 3000;
+
+// Security headers with Helmet
+app.use(helmet({
+  contentSecurityPolicy: {
+    directives: {
+      defaultSrc: ["'self'"],
+      styleSrc: ["'self'", "'unsafe-inline'"], // Required for Swagger UI
+      scriptSrc: ["'self'", "'unsafe-inline'"], // Required for Swagger UI
+      imgSrc: ["'self'", 'data:', 'https:'],
+    },
+  },
+  hsts: {
+    maxAge: 31536000,
+    includeSubDomains: true,
+    preload: true
+  }
+}));
 
 // Middleware
 // Configure CORS for security
@@ -37,9 +56,17 @@ app.use(bodyParser.urlencoded({ extended: true, limit: '10mb' }));
 // Prometheus metrics middleware
 app.use(metricsMiddleware);
 
+// Request ID middleware for tracking
+app.use((req, res, next) => {
+  req.id = crypto.randomUUID();
+  res.setHeader('X-Request-Id', req.id);
+  next();
+});
+
 // Request logging middleware
 app.use((req, res, next) => {
   logger.info(`${req.method} ${req.path}`, {
+    requestId: req.id,
     ip: req.ip,
     userAgent: req.get('user-agent')
   });
@@ -93,6 +120,43 @@ app.use('/api/admin/api-keys', apiKeysRoutes);
 // Legacy health check endpoint
 app.get('/health', (req, res) => {
   res.json({ status: 'ok', timestamp: new Date().toISOString() });
+});
+
+// 404 handler - must be after all routes
+app.use((req, res) => {
+  res.status(404).json({
+    success: false,
+    error: {
+      code: 'not_found',
+      message: `Cannot ${req.method} ${req.path}`,
+      requestId: req.id
+    }
+  });
+});
+
+// Centralized error handling middleware - must be last
+app.use((err, req, res, next) => {
+  // Log the error with request context
+  logger.error('Unhandled error:', {
+    requestId: req.id,
+    error: err.message,
+    stack: err.stack,
+    path: req.path,
+    method: req.method
+  });
+
+  // Don't leak error details in production
+  const isDevelopment = process.env.NODE_ENV !== 'production';
+
+  res.status(err.status || 500).json({
+    success: false,
+    error: {
+      code: err.code || 'internal_error',
+      message: isDevelopment ? err.message : 'An unexpected error occurred',
+      ...(isDevelopment && { stack: err.stack }),
+      requestId: req.id
+    }
+  });
 });
 
 // Initialize database and start server

@@ -1,6 +1,7 @@
 const express = require('express');
 const router = express.Router();
 const logger = require('../utils/logger');
+const { authenticateApiKey, requireAdmin } = require('../middleware/auth');
 
 // In-memory settings store (in production, use database)
 let settings = {
@@ -14,7 +15,7 @@ let settings = {
 };
 
 // Get all settings
-router.get('/', (req, res) => {
+router.get('/', authenticateApiKey, (req, res) => {
   try {
     res.json({
       success: true,
@@ -30,7 +31,7 @@ router.get('/', (req, res) => {
 });
 
 // Update settings
-router.put('/', (req, res) => {
+router.put('/', requireAdmin, (req, res) => {
   try {
     const updates = req.body;
 
@@ -77,7 +78,7 @@ router.put('/', (req, res) => {
 });
 
 // Get specific setting
-router.get('/:key', (req, res) => {
+router.get('/:key', authenticateApiKey, (req, res) => {
   try {
     const { key } = req.params;
 
