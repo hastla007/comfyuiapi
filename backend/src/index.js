@@ -1,4 +1,5 @@
 const express = require('express');
+const http = require('http');
 const cors = require('cors');
 const bodyParser = require('body-parser');
 const rateLimit = require('express-rate-limit');
@@ -14,17 +15,31 @@ const infinitetalkRoutes = require('./routes/infinitetalk');
 const wanRoutes = require('./routes/wan');
 const apiKeysRoutes = require('./routes/apiKeys');
 const usersRoutes = require('./routes/users');
+const logsRoutes = require('./routes/logs');
+const authRoutes = require('./routes/auth');
+const organizationsRoutes = require('./routes/organizations');
+const marketplaceRoutes = require('./routes/marketplace');
+const advancedJobsRoutes = require('./routes/advancedJobs');
+const containerPoolsRoutes = require('./routes/containerPools');
+const storageRoutes = require('./routes/storage');
+const gpuRoutes = require('./routes/gpu');
+const notificationsRoutes = require('./routes/notifications');
 const { initDatabase } = require('./database');
 const { testDockerConnection } = require('./docker');
 const { scanAndImportWorkflows } = require('./services/workflowScanner');
 const jobProcessor = require('./services/jobProcessor');
 const scheduler = require('./services/scheduler');
+const websocketService = require('./services/websocketService');
+const containerMonitor = require('./services/containerMonitor');
+const autoScaler = require('./services/autoScaler');
+const scheduledJobService = require('./services/scheduledJobService');
 const logger = require('./utils/logger');
 const { metricsMiddleware } = require('./middleware/metrics');
 const swaggerSpec = require('./config/swagger');
 const crypto = require('crypto');
 
 const app = express();
+const server = http.createServer(app);
 const PORT = process.env.PORT || 3000;
 
 // Security headers with Helmet
@@ -111,10 +126,31 @@ app.use('/api/workflows', workflowRoutes);
 app.use('/api/jobs', jobRoutes);
 app.use('/api/media', mediaRoutes);
 app.use('/api/settings', settingsRoutes);
+app.use('/api/logs', logsRoutes);
 
 // Model API Routes
 app.use('/api/v1/infinitetalk', infinitetalkRoutes);
 app.use('/api/v1/wan', wanRoutes);
+
+// Authentication & User Management
+app.use('/api/auth', authRoutes);
+app.use('/api/organizations', organizationsRoutes);
+app.use('/api/notifications', notificationsRoutes);
+
+// Marketplace Routes
+app.use('/api/marketplace', marketplaceRoutes);
+
+// Advanced Job Management
+app.use('/api/advanced-jobs', advancedJobsRoutes);
+
+// Container Pools & Auto-Scaling
+app.use('/api/container-pools', containerPoolsRoutes);
+
+// Storage Management
+app.use('/api/storage', storageRoutes);
+
+// GPU Management
+app.use('/api/gpu', gpuRoutes);
 
 // Admin API Routes
 app.use('/api/admin/api-keys', apiKeysRoutes);
@@ -198,9 +234,26 @@ async function start() {
     scheduler.start();
     logger.info('Scheduler started');
 
-    app.listen(PORT, '0.0.0.0', () => {
+    // Initialize WebSocket server
+    websocketService.initialize(server, corsOptions);
+    logger.info('WebSocket server initialized');
+
+    // Start container monitor
+    containerMonitor.start();
+    logger.info('Container monitor started');
+
+    // Start auto-scaler
+    autoScaler.start();
+    logger.info('Auto-scaler started');
+
+    // Start scheduled job service
+    scheduledJobService.start();
+    logger.info('Scheduled job service started');
+
+    server.listen(PORT, '0.0.0.0', () => {
       logger.info(`ComfyUI API Server running on port ${PORT}`);
       console.log(`ComfyUI API Server running on port ${PORT}`);
+      console.log(`WebSocket server ready at ws://localhost:${PORT}/socket.io`);
     });
   } catch (error) {
     console.error('Failed to start server:', error);

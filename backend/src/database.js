@@ -24,6 +24,28 @@ pool.on('error', (err) => {
   // Don't exit the process, just log the error
 });
 
+async function runMigrations() {
+  const fs = require('fs').promises;
+  const path = require('path');
+
+  const client = await pool.connect();
+  try {
+    logger.info('Running database migrations...');
+
+    const migrationPath = path.join(__dirname, 'migrations', 'comprehensive-features.sql');
+    const migrationSQL = await fs.readFile(migrationPath, 'utf-8');
+
+    await client.query(migrationSQL);
+
+    logger.info('✅ Database migrations completed successfully');
+  } catch (error) {
+    logger.warn('Migration error (might already be applied):', error.message);
+    // Don't throw - migrations might have already been run
+  } finally {
+    client.release();
+  }
+}
+
 async function initDatabase() {
   const client = await pool.connect();
   try {
@@ -151,6 +173,9 @@ async function initDatabase() {
   } finally {
     client.release();
   }
+
+  // Run migrations
+  await runMigrations();
 }
 
 module.exports = { pool, initDatabase };
