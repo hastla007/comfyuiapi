@@ -1,4 +1,5 @@
 const { Pool } = require('pg');
+const logger = require('./utils/logger');
 
 const pool = new Pool({
   host: process.env.DB_HOST || 'db',
@@ -19,7 +20,7 @@ const pool = new Pool({
 
 // Handle pool errors
 pool.on('error', (err) => {
-  console.error('Unexpected database pool error:', err);
+  logger.error('Unexpected database pool error:', err);
   // Don't exit the process, just log the error
 });
 
@@ -143,9 +144,9 @@ async function initDatabase() {
       ON api_keys(user_id)
     `);
 
-    console.log('Database initialized successfully');
+    logger.info('Database initialized successfully');
   } catch (error) {
-    console.error('Database initialization error:', error);
+    logger.error('Database initialization error:', error);
     throw error;
   } finally {
     client.release();

@@ -4,6 +4,7 @@ const fs = require('fs').promises;
 const path = require('path');
 const { pool } = require('../database');
 const { authenticateApiKey, requireAdmin } = require('../middleware/auth');
+const logger = require('../utils/logger');
 const {
   getAllContainers,
   createContainer,
@@ -38,7 +39,7 @@ router.get('/', authenticateApiKey, async (req, res) => {
 
     res.json({ success: true, containers });
   } catch (error) {
-    console.error('Error getting containers:', error);
+    logger.error('Error getting containers:', error);
     res.status(500).json({ success: false, error: 'Failed to retrieve containers' });
   }
 });
@@ -204,16 +205,16 @@ router.post('/', authenticateApiKey, async (req, res) => {
         throw startError;
       }
     } catch (innerError) {
-      console.error('Error creating container:', innerError);
+      logger.error('Error creating container:', innerError);
 
       // Rollback: remove container and DB entry on failure
       if (containerId) {
         try {
           await removeContainer(containerId, true);
           await client.query('DELETE FROM containers WHERE container_id = $1', [containerId]);
-          console.log(`Rolled back container ${containerId} due to error`);
+          logger.info(`Rolled back container ${containerId} due to error`);
         } catch (rollbackError) {
-          console.error('Error during rollback:', rollbackError);
+          logger.error('Error during rollback:', rollbackError);
         }
       }
 
@@ -222,7 +223,7 @@ router.post('/', authenticateApiKey, async (req, res) => {
       client.release();
     }
   } catch (error) {
-    console.error('Error in container creation validation:', error);
+    logger.error('Error in container creation validation:', error);
     res.status(500).json({ success: false, error: 'Failed to create container' });
   }
 });
@@ -240,7 +241,7 @@ router.post('/:id/start', authenticateApiKey, async (req, res) => {
     );
     res.json({ success: true, message: 'Container started' });
   } catch (error) {
-    console.error('Error starting container:', error);
+    logger.error('Error starting container:', error);
     res.status(500).json({ success: false, error: 'Failed to start container' });
   }
 });
@@ -258,7 +259,7 @@ router.post('/:id/stop', authenticateApiKey, async (req, res) => {
     );
     res.json({ success: true, message: 'Container stopped' });
   } catch (error) {
-    console.error('Error stopping container:', error);
+    logger.error('Error stopping container:', error);
     res.status(500).json({ success: false, error: 'Failed to stop container' });
   }
 });
@@ -276,7 +277,7 @@ router.post('/:id/restart', authenticateApiKey, async (req, res) => {
     );
     res.json({ success: true, message: 'Container restarted' });
   } catch (error) {
-    console.error('Error restarting container:', error);
+    logger.error('Error restarting container:', error);
     res.status(500).json({ success: false, error: 'Failed to restart container' });
   }
 });
@@ -291,7 +292,7 @@ router.delete('/:id', requireAdmin, async (req, res) => {
     await pool.query('DELETE FROM containers WHERE container_id = $1', [id]);
     res.json({ success: true, message: 'Container removed' });
   } catch (error) {
-    console.error('Error removing container:', error);
+    logger.error('Error removing container:', error);
     res.status(500).json({ success: false, error: 'Failed to remove container' });
   }
 });
@@ -309,7 +310,7 @@ router.get('/:id/logs', authenticateApiKey, async (req, res) => {
     const logs = await getContainerLogs(id, boundedTail);
     res.json({ success: true, logs });
   } catch (error) {
-    console.error('Error getting logs:', error);
+    logger.error('Error getting logs:', error);
     res.status(500).json({ success: false, error: 'Failed to retrieve container logs' });
   }
 });
@@ -323,7 +324,7 @@ router.get('/:id/stats', authenticateApiKey, async (req, res) => {
     const stats = await getContainerStats(id);
     res.json({ success: true, stats });
   } catch (error) {
-    console.error('Error getting stats:', error);
+    logger.error('Error getting stats:', error);
     res.status(500).json({ success: false, error: 'Failed to retrieve container stats' });
   }
 });

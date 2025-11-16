@@ -1,6 +1,7 @@
 const { pool } = require('../database');
 const { createClient } = require('./comfyuiClient');
 const { triggerWebhook } = require('./webhookService');
+const logger = require('../utils/logger');
 const fs = require('fs').promises;
 const path = require('path');
 
@@ -21,12 +22,12 @@ class JobProcessor {
    */
   start() {
     if (this.isRunning) {
-      console.log('Job processor is already running');
+      logger.info('Job processor is already running');
       return;
     }
 
     this.isRunning = true;
-    console.log('Job processor started');
+    logger.info('Job processor started');
     this.processLoop();
   }
 
@@ -35,7 +36,7 @@ class JobProcessor {
    */
   stop() {
     this.isRunning = false;
-    console.log('Job processor stopped');
+    logger.info('Job processor stopped');
   }
 
   /**
@@ -46,7 +47,7 @@ class JobProcessor {
       try {
         await this.processNextJob();
       } catch (error) {
-        console.error('Error in job processing loop:', error);
+        logger.error('Error in job processing loop:', error);
       }
 
       // Wait before next poll
@@ -72,7 +73,7 @@ class JobProcessor {
 
     // Process the job (don't await - let it run in background)
     this.executeJob(job).catch(error => {
-      console.error(`Error executing job ${job.id}:`, error);
+      logger.error(`Error executing job ${job.id}:`, error);
       this.handleJobError(job.id, error.message);
     });
   }
@@ -109,7 +110,7 @@ class JobProcessor {
    * Execute a job
    */
   async executeJob(job) {
-    console.log(`Executing job ${job.id} (workflow: ${job.workflow_id})`);
+    logger.info(`Executing job ${job.id} (workflow: ${job.workflow_id})`);
 
     try {
       // Get workflow
@@ -141,7 +142,7 @@ class JobProcessor {
         job.parameters
       );
 
-      console.log(`Job ${job.id} queued as prompt ${promptId}`);
+      logger.info(`Job ${job.id} queued as prompt ${promptId}`);
 
       // Update job with ComfyUI prompt ID
       await this.updateJob(job.id, {
@@ -167,14 +168,14 @@ class JobProcessor {
       // Mark job as completed
       await this.completeJob(job.id, outputUrl);
 
-      console.log(`Job ${job.id} completed successfully`);
+      logger.info(`Job ${job.id} completed successfully`);
 
       // Cleanup
       client.disconnect();
       this.processingJobs.delete(job.id);
 
     } catch (error) {
-      console.error(`Job ${job.id} failed:`, error);
+      logger.error(`Job ${job.id} failed:`, error);
       await this.handleJobError(job.id, error.message);
 
       // Cleanup
@@ -197,7 +198,7 @@ class JobProcessor {
     });
 
     client.on('execution_error', async (data) => {
-      console.error(`Execution error for job ${jobId}:`, data.error);
+      logger.error(`Execution error for job ${jobId}:`, data.error);
       await this.handleJobError(jobId, data.error);
     });
   }
@@ -326,7 +327,7 @@ class JobProcessor {
         },
         job.job_id
       ).catch(err => {
-        console.error(`Failed to trigger webhook for job ${job.job_id}:`, err);
+        logger.error(`Failed to trigger webhook for job ${job.job_id}:`, err);
       });
     }
   }
@@ -359,7 +360,7 @@ class JobProcessor {
         },
         job.job_id
       ).catch(err => {
-        console.error(`Failed to trigger webhook for job ${job.job_id}:`, err);
+        logger.error(`Failed to trigger webhook for job ${job.job_id}:`, err);
       });
     }
   }
@@ -383,7 +384,7 @@ class JobProcessor {
 
     // If the update affected no rows, the job was already in a final state
     if (result.rows.length === 0) {
-      console.log(`Cannot cancel job ${jobId} - already in final state`);
+      logger.info(`Cannot cancel job ${jobId} - already in final state`);
       return false;
     }
 
@@ -394,7 +395,7 @@ class JobProcessor {
         await processingInfo.client.cancelPrompt(processingInfo.promptId);
         processingInfo.client.disconnect();
       } catch (error) {
-        console.error(`Error cancelling ComfyUI prompt for job ${jobId}:`, error);
+        logger.error(`Error cancelling ComfyUI prompt for job ${jobId}:`, error);
       } finally {
         this.processingJobs.delete(jobId);
       }
