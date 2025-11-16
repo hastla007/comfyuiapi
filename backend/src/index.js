@@ -5,6 +5,7 @@ const containerRoutes = require('./routes/containers');
 const workflowRoutes = require('./routes/workflows');
 const { initDatabase } = require('./database');
 const { testDockerConnection } = require('./docker');
+const { scanAndImportWorkflows } = require('./services/workflowScanner');
 
 const app = express();
 const PORT = process.env.PORT || 3000;
@@ -52,6 +53,9 @@ async function start() {
         await new Promise(resolve => setTimeout(resolve, 2000));
       }
     }
+
+    // Scan and import workflows from filesystem
+    await scanAndImportWorkflows();
 
     app.listen(PORT, '0.0.0.0', () => {
       console.log(`ComfyUI API Server running on port ${PORT}`);

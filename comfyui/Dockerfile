@@ -27,6 +27,12 @@ RUN pip3 install --no-cache-dir torch torchvision torchaudio --index-url https:/
 # Create directories for models, workflows, and output
 RUN mkdir -p /app/models /app/workflows /app/output /app/input /app/custom_nodes
 
+# Install ComfyUI-Manager
+RUN cd /app/custom_nodes && \
+    git clone https://github.com/ltdrdata/ComfyUI-Manager.git && \
+    cd ComfyUI-Manager && \
+    pip3 install --no-cache-dir -r requirements.txt
+
 # Expose ComfyUI port
 EXPOSE 8188
 
