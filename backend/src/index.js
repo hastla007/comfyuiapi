@@ -61,7 +61,7 @@ app.use(helmet({
 
 // Middleware
 // Configure CORS for security
-const { corsMiddleware, getAllowedOrigins } = require('./utils/cors');
+const { corsMiddleware, corsOptions, getAllowedOrigins } = require('./utils/cors');
 logger.info('CORS allowed origins', { origins: getAllowedOrigins() });
 app.use(corsMiddleware);
 app.use(bodyParser.json({ limit: '10mb' }));
