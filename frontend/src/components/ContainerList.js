@@ -1,7 +1,9 @@
-import React from 'react';
+import React, { useState } from 'react';
 import './ContainerList.css';
 
-function ContainerList({ containers, loading, onStart, onStop, onRestart, onDelete }) {
+function ContainerList({ containers, workflows, loading, onStart, onStop, onRestart, onDelete, onAssignWorkflow }) {
+  const [assigningWorkflow, setAssigningWorkflow] = useState(null);
+  const [selectedWorkflow, setSelectedWorkflow] = useState('');
   if (loading) {
     return <div className="loading">Loading containers...</div>;
   }
@@ -34,6 +36,33 @@ function ContainerList({ containers, loading, onStart, onStop, onRestart, onDele
     return ports.map(p => p.PublicPort || p.PrivatePort).join(', ');
   };
 
+  const getWorkflowName = (workflowId) => {
+    if (!workflowId) return 'None';
+    const workflow = workflows.find(w => w.id === workflowId);
+    return workflow ? workflow.name : `#${workflowId}`;
+  };
+
+  const handleOpenAssignModal = (container) => {
+    setAssigningWorkflow(container.id);
+    setSelectedWorkflow(container.workflow_id || '');
+  };
+
+  const handleCloseAssignModal = () => {
+    setAssigningWorkflow(null);
+    setSelectedWorkflow('');
+  };
+
+  const handleAssignSubmit = async () => {
+    if (!selectedWorkflow) {
+      alert('Please select a workflow');
+      return;
+    }
+    const success = await onAssignWorkflow(assigningWorkflow, selectedWorkflow);
+    if (success) {
+      handleCloseAssignModal();
+    }
+  };
+
   return (
     <div className="container-list">
       <h2>Active Containers</h2>
@@ -59,12 +88,10 @@ function ContainerList({ containers, loading, onStart, onStop, onRestart, onDele
                 <span className="label">Container ID:</span>
                 <span className="value">{container.id?.substring(0, 12)}</span>
               </div>
-              {container.workflow_id && (
-                <div className="info-row">
-                  <span className="label">Workflow:</span>
-                  <span className="value">#{container.workflow_id}</span>
-                </div>
-              )}
+              <div className="info-row">
+                <span className="label">Workflow:</span>
+                <span className="value">{getWorkflowName(container.workflow_id)}</span>
+              </div>
             </div>
 
             <div className="container-actions">
@@ -90,6 +117,9 @@ function ContainerList({ containers, loading, onStart, onStop, onRestart, onDele
                   Start
                 </button>
               )}
+              <button onClick={() => handleOpenAssignModal(container)} className="btn btn-secondary">
+                Assign Workflow
+              </button>
               <button onClick={() => onDelete(container.id)} className="btn btn-danger">
                 Delete
               </button>
@@ -97,6 +127,45 @@ function ContainerList({ containers, loading, onStart, onStop, onRestart, onDele
           </div>
         ))}
       </div>
+
+      {assigningWorkflow && (
+        <div className="modal-overlay" onClick={handleCloseAssignModal}>
+          <div className="modal-content" onClick={(e) => e.stopPropagation()}>
+            <div className="modal-header">
+              <h3>Assign Workflow</h3>
+              <button className="btn-close" onClick={handleCloseAssignModal}>
+                ✕
+              </button>
+            </div>
+            <div className="modal-body">
+              <div className="form-group">
+                <label htmlFor="workflow-select">Select Workflow</label>
+                <select
+                  id="workflow-select"
+                  value={selectedWorkflow}
+                  onChange={(e) => setSelectedWorkflow(e.target.value)}
+                  className="workflow-select"
+                >
+                  <option value="">Choose a workflow...</option>
+                  {workflows.map((workflow) => (
+                    <option key={workflow.id} value={workflow.id}>
+                      {workflow.name}
+                    </option>
+                  ))}
+                </select>
+              </div>
+            </div>
+            <div className="modal-footer">
+              <button className="btn btn-secondary" onClick={handleCloseAssignModal}>
+                Cancel
+              </button>
+              <button className="btn btn-primary" onClick={handleAssignSubmit}>
+                Assign
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }

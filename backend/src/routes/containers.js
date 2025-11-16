@@ -1,5 +1,7 @@
 const express = require('express');
 const router = express.Router();
+const fs = require('fs').promises;
+const path = require('path');
 const { pool } = require('../database');
 const {
   getAllContainers,
@@ -87,6 +89,21 @@ router.post('/', async (req, res) => {
       'INSERT INTO containers (container_id, name, port, status, workflow_id) VALUES ($1, $2, $3, $4, $5)',
       [container.id, name, port, 'created', workflowId]
     );
+
+    // If workflowId is provided, write workflow file to container's directory
+    if (workflowId) {
+      try {
+        const workflow = await client.query('SELECT workflow_json FROM workflows WHERE id = $1', [workflowId]);
+        if (workflow.rows.length > 0) {
+          const workflowDir = path.join('/app/workflows', `instance-${instanceId}`);
+          const workflowFile = path.join(workflowDir, 'workflow.json');
+          await fs.mkdir(workflowDir, { recursive: true });
+          await fs.writeFile(workflowFile, JSON.stringify(workflow.rows[0].workflow_json, null, 2));
+        }
+      } catch (fsError) {
+        console.error('Error writing workflow file during container creation:', fsError);
+      }
+    }
 
     // Start the container
     try {
