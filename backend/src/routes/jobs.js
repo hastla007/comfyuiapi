@@ -39,7 +39,7 @@ router.post('/', authenticateApiKey, async (req, res) => {
     // If container_id specified, validate it exists and is running
     if (container_id) {
       const containerResult = await pool.query(
-        'SELECT id FROM containers WHERE id = $1',
+        'SELECT id FROM containers WHERE container_id = $1 OR id = $1',
         [container_id]
       );
 

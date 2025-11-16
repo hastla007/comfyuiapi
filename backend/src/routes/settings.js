@@ -82,7 +82,8 @@ router.get('/:key', authenticateApiKey, (req, res) => {
   try {
     const { key } = req.params;
 
-    if (settings.hasOwnProperty(key)) {
+    // Use Object.prototype.hasOwnProperty.call to avoid prototype pollution
+    if (Object.prototype.hasOwnProperty.call(settings, key)) {
       res.json({
         success: true,
         key,
