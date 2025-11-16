@@ -460,10 +460,11 @@ router.delete('/cleanup', requireAdmin, async (req, res) => {
     }
 
     // Use parameterized query to prevent SQL injection
+    // Use COALESCE to handle cancelled jobs that might not have completed_at set
     const result = await pool.query(`
       DELETE FROM jobs
       WHERE status IN ('completed', 'failed', 'cancelled')
-        AND completed_at < NOW() - INTERVAL '1 day' * $1
+        AND COALESCE(completed_at, updated_at) < NOW() - INTERVAL '1 day' * $1
     `, [daysNum]);
 
     res.json({

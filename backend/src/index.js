@@ -13,6 +13,7 @@ const settingsRoutes = require('./routes/settings');
 const infinitetalkRoutes = require('./routes/infinitetalk');
 const wanRoutes = require('./routes/wan');
 const apiKeysRoutes = require('./routes/apiKeys');
+const usersRoutes = require('./routes/users');
 const { initDatabase } = require('./database');
 const { testDockerConnection } = require('./docker');
 const { scanAndImportWorkflows } = require('./services/workflowScanner');
@@ -117,6 +118,7 @@ app.use('/api/v1/wan', wanRoutes);
 
 // Admin API Routes
 app.use('/api/admin/api-keys', apiKeysRoutes);
+app.use('/api/admin/users', usersRoutes);
 
 // Legacy health check endpoint
 app.get('/health', (req, res) => {
