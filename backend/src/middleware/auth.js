@@ -255,7 +255,6 @@ async function listApiKeys(userId) {
 module.exports = {
   requireAdmin,
   optionalAdmin,
-  ADMIN_TOKEN,
   createApiKey,
   authenticateApiKey,
   revokeApiKey,

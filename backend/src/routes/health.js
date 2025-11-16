@@ -3,6 +3,7 @@ const router = express.Router();
 const { pool } = require('../database');
 const docker = require('../docker');
 const { register, getSystemMetrics } = require('../middleware/metrics');
+const { requireAdmin } = require('../middleware/auth');
 const logger = require('../utils/logger');
 const os = require('os');
 const fs = require('fs').promises;
@@ -147,7 +148,7 @@ router.get('/logs', async (req, res) => {
 });
 
 // Clear logs endpoint (admin only)
-router.delete('/logs', async (req, res) => {
+router.delete('/logs', requireAdmin, async (req, res) => {
   try {
     const logDir = path.join(__dirname, '../../logs');
     const files = await fs.readdir(logDir);
