@@ -220,13 +220,24 @@ router.post('/', async (req, res) => {
         }
       }
 
-      res.status(500).json({ success: false, error: 'Failed to create container' });
+      // Provide more detailed error message for debugging
+      const errorMessage = innerError.message || 'Failed to create container';
+      res.status(500).json({
+        success: false,
+        error: 'Failed to create container',
+        details: process.env.NODE_ENV === 'development' ? errorMessage : undefined
+      });
     } finally {
       client.release();
     }
   } catch (error) {
     logger.error('Error in container creation validation:', error);
-    res.status(500).json({ success: false, error: 'Failed to create container' });
+    const errorMessage = error.message || 'Failed to create container';
+    res.status(500).json({
+      success: false,
+      error: 'Failed to create container',
+      details: process.env.NODE_ENV === 'development' ? errorMessage : undefined
+    });
   }
 });
 

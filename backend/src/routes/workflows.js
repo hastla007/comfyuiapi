@@ -315,7 +315,12 @@ router.post('/:id/assign/:containerId', async (req, res) => {
     } catch (rollbackError) {
       logger.error('Error rolling back transaction:', rollbackError);
     }
-    res.status(500).json({ success: false, error: 'Failed to assign workflow to container' });
+    const errorMessage = error.message || 'Failed to assign workflow to container';
+    res.status(500).json({
+      success: false,
+      error: 'Failed to assign workflow to container',
+      details: process.env.NODE_ENV === 'development' ? errorMessage : undefined
+    });
   } finally {
     client.release();
   }
