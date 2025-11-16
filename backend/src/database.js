@@ -55,20 +55,28 @@ async function initDatabase() {
       )
     `);
 
-    // Create jobs table
+    // Create jobs table (supports both old and new API)
     await client.query(`
       CREATE TABLE IF NOT EXISTS jobs (
         id SERIAL PRIMARY KEY,
+        job_id UUID UNIQUE DEFAULT gen_random_uuid(),
+        user_id INTEGER REFERENCES users(id),
+        model VARCHAR(100),
         workflow_id INTEGER REFERENCES workflows(id),
         container_id INTEGER REFERENCES containers(id),
         status VARCHAR(50) NOT NULL DEFAULT 'queued',
         priority INTEGER DEFAULT 0,
-        parameters JSONB NOT NULL,
+        parameters JSONB,
+        request_payload JSONB,
+        callback_url TEXT,
         input_image_url TEXT,
         output_image_url TEXT,
-        comfyui_prompt_id VARCHAR(255),
+        result JSONB,
+        error JSONB,
         error_message TEXT,
+        comfyui_prompt_id VARCHAR(255),
         progress INTEGER DEFAULT 0,
+        expires_at TIMESTAMP,
         created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
         updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
         started_at TIMESTAMP,
@@ -87,6 +95,41 @@ async function initDatabase() {
     await client.query(`
       CREATE INDEX IF NOT EXISTS idx_jobs_comfyui_prompt_id
       ON jobs(comfyui_prompt_id)
+    `);
+
+    // Create index for job_id lookup
+    await client.query(`
+      CREATE INDEX IF NOT EXISTS idx_jobs_job_id
+      ON jobs(job_id)
+    `);
+
+    // Create API keys table
+    await client.query(`
+      CREATE TABLE IF NOT EXISTS api_keys (
+        id SERIAL PRIMARY KEY,
+        user_id INTEGER REFERENCES users(id) ON DELETE CASCADE,
+        key_hash VARCHAR(64) UNIQUE NOT NULL,
+        key_prefix VARCHAR(20) NOT NULL,
+        name VARCHAR(255),
+        permissions JSONB,
+        rate_limit INTEGER DEFAULT 100,
+        created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+        last_used_at TIMESTAMP,
+        expires_at TIMESTAMP,
+        revoked_at TIMESTAMP
+      )
+    `);
+
+    // Create index for API key lookup
+    await client.query(`
+      CREATE INDEX IF NOT EXISTS idx_api_keys_hash
+      ON api_keys(key_hash)
+    `);
+
+    // Create index for user API keys
+    await client.query(`
+      CREATE INDEX IF NOT EXISTS idx_api_keys_user
+      ON api_keys(user_id)
     `);
 
     console.log('Database initialized successfully');

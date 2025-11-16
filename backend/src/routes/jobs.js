@@ -450,11 +450,21 @@ router.delete('/cleanup', requireAdmin, async (req, res) => {
   try {
     const { days = 7 } = req.query;
 
+    // Validate days parameter
+    const daysNum = parseInt(days, 10);
+    if (isNaN(daysNum) || daysNum < 1 || daysNum > 365) {
+      return res.status(400).json({
+        error: 'Invalid days parameter',
+        details: 'days must be between 1 and 365'
+      });
+    }
+
+    // Use parameterized query to prevent SQL injection
     const result = await pool.query(`
       DELETE FROM jobs
       WHERE status IN ('completed', 'failed', 'cancelled')
-        AND completed_at < NOW() - INTERVAL '${parseInt(days)} days'
-    `);
+        AND completed_at < NOW() - INTERVAL '1 day' * $1
+    `, [daysNum]);
 
     res.json({
       success: true,

@@ -9,6 +9,9 @@ const jobRoutes = require('./routes/jobs');
 const mediaRoutes = require('./routes/media');
 const healthRoutes = require('./routes/health');
 const settingsRoutes = require('./routes/settings');
+const infinitetalkRoutes = require('./routes/infinitetalk');
+const wanRoutes = require('./routes/wan');
+const apiKeysRoutes = require('./routes/apiKeys');
 const { initDatabase } = require('./database');
 const { testDockerConnection } = require('./docker');
 const { scanAndImportWorkflows } = require('./services/workflowScanner');
@@ -79,6 +82,13 @@ app.use('/api/workflows', workflowRoutes);
 app.use('/api/jobs', jobRoutes);
 app.use('/api/media', mediaRoutes);
 app.use('/api/settings', settingsRoutes);
+
+// Model API Routes
+app.use('/api/v1/infinitetalk', infinitetalkRoutes);
+app.use('/api/v1/wan', wanRoutes);
+
+// Admin API Routes
+app.use('/api/admin/api-keys', apiKeysRoutes);
 
 // Legacy health check endpoint
 app.get('/health', (req, res) => {

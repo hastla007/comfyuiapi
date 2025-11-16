@@ -23,7 +23,7 @@ function validateInfinitetalkParams(body) {
     const seed = parseInt(body.seed, 10);
     if (isNaN(seed) || seed < 0) {
       errors.push('Invalid seed. Must be -1 (random) or a positive integer');
-  }
+    }
   }
 
   // Workflow ID validation
