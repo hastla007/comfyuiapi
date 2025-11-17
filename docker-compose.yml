@@ -1,5 +1,3 @@
-version: '3.8'
-
 services:
   # Backend API for managing ComfyUI containers
   api:
@@ -117,6 +115,8 @@ services:
               capabilities: [gpu]
     networks:
       - comfyui-network
+    depends_on:
+      - comfyui-1
     restart: unless-stopped
 
   # Prometheus for metrics collection
