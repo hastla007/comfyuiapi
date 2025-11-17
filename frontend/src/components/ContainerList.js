@@ -17,6 +17,11 @@ function ContainerList({ containers, workflows, loading, onStart, onStop, onRest
     );
   }
 
+  const formatId = (value, length = 12) => {
+    if (value === undefined || value === null) return 'N/A';
+    return String(value).substring(0, length);
+  };
+
   const getStatusColor = (status) => {
     switch (status?.toLowerCase()) {
       case 'running':
@@ -88,7 +93,7 @@ function ContainerList({ containers, workflows, loading, onStart, onStop, onRest
               </div>
               <div className="info-row">
                 <span className="label">Container ID:</span>
-                <span className="value">{container.id?.substring(0, 12)}</span>
+                <span className="value">{formatId(container.id)}</span>
               </div>
               <div className="info-row">
                 <span className="label">Workflow:</span>
