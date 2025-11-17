@@ -288,8 +288,9 @@ describe('Containers Routes', () => {
 
       expect(pool.query).toHaveBeenCalledWith(
         `SELECT * FROM container_load_status
-       WHERE id = $1 OR id = (SELECT id FROM containers WHERE container_id = $2)` ,
-        ['1', '1']
+       WHERE ($1::int IS NOT NULL AND id = $1::int)
+         OR id = (SELECT id FROM containers WHERE container_id = $2)` ,
+        [1, '1']
       );
       expect(response.body.data.active_job_count).toBe(2);
     });

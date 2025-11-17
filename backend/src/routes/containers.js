@@ -90,10 +90,12 @@ router.get('/', async (req, res) => {
 router.get('/load-status/:id', async (req, res) => {
   try {
     const { id } = req.params;
+    const numericId = Number.isInteger(Number(id)) ? Number(id) : null;
     const result = await pool.query(
       `SELECT * FROM container_load_status
-       WHERE id = $1 OR id = (SELECT id FROM containers WHERE container_id = $2)` ,
-      [id, id]
+       WHERE ($1::int IS NOT NULL AND id = $1::int)
+         OR id = (SELECT id FROM containers WHERE container_id = $2)` ,
+      [numericId, id]
     );
 
     if (result.rows.length === 0) {
@@ -466,19 +468,20 @@ router.get('/:id/logs', async (req, res) => {
 router.get('/:id/stats', async (req, res) => {
   try {
     const { id } = req.params;
+    const numericId = Number.isInteger(Number(id)) ? Number(id) : null;
     const stats = await getContainerStats(id);
     const summary = summarizeStats(stats);
 
     const loadResult = await pool.query(
       `SELECT 
-        c.max_concurrent_jobs,
-        COUNT(caj.id) as active_jobs
-       FROM containers c
-       LEFT JOIN container_active_jobs caj ON c.id = caj.container_id
-         AND caj.status = 'processing'
-       WHERE c.id = $1 OR c.container_id = $2
+       c.max_concurrent_jobs,
+       COUNT(caj.id) as active_jobs
+      FROM containers c
+      LEFT JOIN container_active_jobs caj ON c.id = caj.container_id
+        AND caj.status = 'processing'
+       WHERE ($1::int IS NOT NULL AND c.id = $1::int) OR c.container_id = $2
        GROUP BY c.id, c.max_concurrent_jobs`,
-      [id, id]
+      [numericId, id]
     );
 
     const loadInfo = loadResult.rows[0] || { max_concurrent_jobs: 0, active_jobs: 0 };

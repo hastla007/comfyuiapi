@@ -24,6 +24,9 @@ RUN git clone https://github.com/comfyanonymous/ComfyUI.git . && \
 # Install additional dependencies for GPU
 RUN pip3 install --no-cache-dir torch torchvision torchaudio --index-url https://download.pytorch.org/whl/cu121
 
+# Install optional performance extensions
+RUN pip3 install --no-cache-dir triton sageattention
+
 # Create directories for models, workflows, and output
 RUN mkdir -p /app/models /app/workflows /app/output /app/input /app/custom_nodes
 
