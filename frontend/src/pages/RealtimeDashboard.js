@@ -81,6 +81,11 @@ const RealtimeDashboard = () => {
     };
   }, []);
 
+  const formatId = (value, length = 8) => {
+    if (value === undefined || value === null) return 'Unknown';
+    return String(value).substring(0, length);
+  };
+
   return (
     <div style={{ padding: '20px', backgroundColor: '#f5f5f5', minHeight: '100vh' }}>
       <div style={{ marginBottom: '20px', display: 'flex', alignItems: 'center', gap: '10px' }}>
@@ -110,7 +115,7 @@ const RealtimeDashboard = () => {
               jobs.map((job, idx) => (
                 <div key={idx} style={{ marginBottom: '15px', padding: '10px', backgroundColor: '#f9f9f9', borderRadius: '4px' }}>
                   <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '5px' }}>
-                    <span style={{ fontSize: '12px', fontWeight: 'bold' }}>Job {job.jobId?.substring(0, 8)}</span>
+                    <span style={{ fontSize: '12px', fontWeight: 'bold' }}>Job {formatId(job.jobId)}</span>
                     <span style={{
                       fontSize: '12px',
                       padding: '2px 8px',

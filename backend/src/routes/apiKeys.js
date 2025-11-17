@@ -62,6 +62,8 @@ router.post('/', requireAdmin, async (req, res) => {
       key_prefix: apiKeyData.key_prefix,
       name: apiKeyData.name,
       created_at: apiKeyData.created_at,
+      user_id: userId,
+      rate_limit: rateLimit || 100,
       message: 'Save this API key securely. It will not be shown again.'
     });
   } catch (error) {

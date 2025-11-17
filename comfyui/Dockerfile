@@ -24,6 +24,9 @@ RUN git clone https://github.com/comfyanonymous/ComfyUI.git . && \
 # Install additional dependencies for GPU
 RUN pip3 install --no-cache-dir torch torchvision torchaudio --index-url https://download.pytorch.org/whl/cu121
 
+# Install optional performance extensions (pin triton below 3.4 for compatibility)
+RUN python3 -m pip install --no-cache-dir "triton<3.4" sageattention
+
 # Create directories for models, workflows, and output
 RUN mkdir -p /app/models /app/workflows /app/output /app/input /app/custom_nodes
 
@@ -32,6 +35,15 @@ RUN cd /app/custom_nodes && \
     git clone https://github.com/ltdrdata/ComfyUI-Manager.git && \
     cd ComfyUI-Manager && \
     pip3 install --no-cache-dir -r requirements.txt
+
+# Pre-install common custom nodes
+RUN cd /app/custom_nodes && \
+    git clone https://github.com/wildminder/ComfyUI-DyPE.git && \
+    (cd ComfyUI-DyPE && if [ -f requirements.txt ]; then pip3 install --no-cache-dir -r requirements.txt; fi) && \
+    git clone https://github.com/kijai/ComfyUI-WanAnimatePreprocess.git && \
+    (cd ComfyUI-WanAnimatePreprocess && if [ -f requirements.txt ]; then pip3 install --no-cache-dir -r requirements.txt; fi) && \
+    git clone https://github.com/rgthree/rgthree-comfy.git && \
+    (cd rgthree-comfy && if [ -f requirements.txt ]; then pip3 install --no-cache-dir -r requirements.txt; fi)
 
 # Expose ComfyUI port
 EXPOSE 8188

@@ -119,6 +119,49 @@ router.get('/', authenticateApiKey, async (req, res) => {
   }
 });
 
+router.get('/:id/load-distribution', authenticateApiKey, async (req, res) => {
+  try {
+    const { id } = req.params;
+
+    const result = await pool.query(
+      `SELECT 
+        c.id,
+        c.name,
+        c.port,
+        c.status,
+        c.max_concurrent_jobs,
+        c.health_status,
+        COUNT(CASE WHEN caj.status = 'processing' THEN 1 END) as active_jobs,
+        COUNT(CASE WHEN caj.status = 'processing' THEN 1 END)::float /
+          NULLIF(c.max_concurrent_jobs, 0) * 100 as load_percent
+      FROM containers c
+      LEFT JOIN container_active_jobs caj ON c.id = caj.container_id
+      WHERE c.pool_id = $1
+      GROUP BY c.id, c.name, c.port, c.status, c.max_concurrent_jobs, c.health_status
+      ORDER BY active_jobs DESC`,
+      [id]
+    );
+
+    const containers = result.rows;
+    const summary = {
+      total_containers: containers.length,
+      total_active_jobs: containers.reduce((sum, c) => sum + parseInt(c.active_jobs || 0, 10), 0),
+      total_capacity: containers.reduce((sum, c) => sum + (c.max_concurrent_jobs || 0), 0),
+      average_load_percent: containers.length > 0
+        ? (containers.reduce((sum, c) => sum + parseFloat(c.load_percent || 0), 0) / containers.length).toFixed(2)
+        : 0
+    };
+
+    res.json({
+      success: true,
+      data: { containers, summary }
+    });
+  } catch (error) {
+    logger.error('Error getting load distribution:', error);
+    res.status(500).json({ success: false, error: 'Failed to retrieve load distribution' });
+  }
+});
+
 /**
  * Get container pool by ID
  * GET /api/container-pools/:id
