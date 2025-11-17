@@ -148,3 +148,70 @@
   color: #888;
   font-size: 1.1rem;
 }
+
+.gpu-toolbar {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 1rem;
+  flex-wrap: wrap;
+}
+
+.gpu-summary {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+  gap: 0.75rem;
+  margin-top: 0.5rem;
+}
+
+.gpu-card {
+  background: #f8fafc;
+  border: 1px solid #e2e8f0;
+  border-radius: 10px;
+  padding: 0.75rem;
+}
+
+.gpu-name {
+  font-weight: 600;
+  margin-bottom: 0.35rem;
+}
+
+.gpu-metrics {
+  display: flex;
+  flex-direction: column;
+  gap: 0.15rem;
+  font-size: 0.9rem;
+  color: #475569;
+}
+
+.gpu-hint {
+  margin: 0;
+  color: #475569;
+}
+
+.unload-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.4rem;
+}
+
+.gpu-diff {
+  margin-top: 1rem;
+  background: #f8fafc;
+  border: 1px solid #e2e8f0;
+  border-radius: 10px;
+  padding: 0.75rem 1rem;
+}
+
+.gpu-diff-list {
+  display: flex;
+  flex-direction: column;
+  gap: 0.25rem;
+  margin-top: 0.35rem;
+}
+
+.gpu-diff-row {
+  display: flex;
+  justify-content: space-between;
+  gap: 0.75rem;
+}

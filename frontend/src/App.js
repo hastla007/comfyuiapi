@@ -11,24 +11,31 @@ import FilesPage from './pages/FilesPage';
 import SystemInfoPage from './pages/SystemInfoPage';
 import SettingsPage from './pages/SettingsPage';
 import ApiDocsPage from './pages/ApiDocsPage';
+import ApiKeysPage from './pages/ApiKeysPage';
+import ErrorBoundary from './components/ErrorBoundary';
+import PlaygroundPage from './pages/PlaygroundPage';
 
 function App() {
   return (
     <Router>
-      <Layout>
-        <Routes>
-          <Route path="/" element={<Navigate to="/containers" replace />} />
-          <Route path="/containers" element={<ContainersPage />} />
-          <Route path="/workflows" element={<WorkflowsPage />} />
-          <Route path="/logs" element={<LogsPage />} />
-          <Route path="/queue" element={<QueuePage />} />
-          <Route path="/jobs" element={<JobsPage />} />
-          <Route path="/files" element={<FilesPage />} />
-          <Route path="/system" element={<SystemInfoPage />} />
-          <Route path="/settings" element={<SettingsPage />} />
-          <Route path="/api-docs" element={<ApiDocsPage />} />
-        </Routes>
-      </Layout>
+      <ErrorBoundary>
+        <Layout>
+          <Routes>
+            <Route path="/" element={<Navigate to="/containers" replace />} />
+            <Route path="/containers" element={<ContainersPage />} />
+            <Route path="/workflows" element={<WorkflowsPage />} />
+            <Route path="/logs" element={<LogsPage />} />
+            <Route path="/queue" element={<QueuePage />} />
+            <Route path="/jobs" element={<JobsPage />} />
+            <Route path="/files" element={<FilesPage />} />
+            <Route path="/system" element={<SystemInfoPage />} />
+            <Route path="/settings" element={<SettingsPage />} />
+            <Route path="/api-keys" element={<ApiKeysPage />} />
+            <Route path="/api-docs" element={<ApiDocsPage />} />
+            <Route path="/playground" element={<PlaygroundPage />} />
+          </Routes>
+        </Layout>
+      </ErrorBoundary>
     </Router>
   );
 }

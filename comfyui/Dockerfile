@@ -33,6 +33,13 @@ RUN cd /app/custom_nodes && \
     cd ComfyUI-Manager && \
     pip3 install --no-cache-dir -r requirements.txt
 
+# Pre-install common custom nodes
+RUN cd /app/custom_nodes && \
+    git clone https://github.com/wildminder/ComfyUI-DyPE.git && \
+    (cd ComfyUI-DyPE && if [ -f requirements.txt ]; then pip3 install --no-cache-dir -r requirements.txt; fi) && \
+    git clone https://github.com/kijai/ComfyUI-WanAnimatePreprocess.git && \
+    (cd ComfyUI-WanAnimatePreprocess && if [ -f requirements.txt ]; then pip3 install --no-cache-dir -r requirements.txt; fi)
+
 # Expose ComfyUI port
 EXPOSE 8188
 
