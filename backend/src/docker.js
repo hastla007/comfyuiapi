@@ -1,4 +1,16 @@
 const Docker = require('dockerode');
+const path = require('path');
+
+function getVolumeBase() {
+  const envBase = process.env.VOLUME_BASE || process.env.COMPOSE_PROJECT_DIR;
+
+  if (envBase) {
+    return envBase;
+  }
+
+  // Fallback to repository root instead of /app to avoid self-mounting inside containers
+  return path.resolve(__dirname, '..', '..');
+}
 
 const volumeBase = process.env.VOLUME_BASE || process.env.COMPOSE_PROJECT_DIR || '/app';
 
@@ -136,6 +148,8 @@ async function createContainer(config) {
 
   // Ensure network exists before creating container
   await ensureNetwork();
+
+  const volumeBase = getVolumeBase();
 
   const containerConfig = {
     Image: imageName,

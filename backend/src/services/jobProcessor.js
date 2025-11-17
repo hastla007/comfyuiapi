@@ -5,6 +5,7 @@ const websocketService = require('./websocketService');
 const logger = require('../utils/logger');
 const fs = require('fs').promises;
 const path = require('path');
+const { getVolumeBase } = require('../docker');
 
 /**
  * Job Processor
@@ -114,8 +115,8 @@ class JobProcessor {
     logger.info(`Executing job ${job.id} (workflow: ${job.workflow_id})`);
 
     try {
-      // Get workflow
-      const workflow = await this.getWorkflow(job.workflow_id);
+      // Get workflow (prefer the version on disk for the targeted container)
+      const workflow = await this.getWorkflow(job.workflow_id, container?.id);
 
       if (!workflow) {
         throw new Error(`Workflow ${job.workflow_id} not found`);
@@ -249,7 +250,22 @@ class JobProcessor {
   /**
    * Get workflow from database
    */
-  async getWorkflow(workflowId) {
+  async getWorkflow(workflowId, containerInstanceId) {
+    if (containerInstanceId) {
+      const workflowsBase = path.resolve(getVolumeBase(), 'workflows');
+      const workflowFile = path.join(workflowsBase, `instance-${containerInstanceId}`, 'workflow.json');
+
+      try {
+        const contents = await fs.readFile(workflowFile, 'utf-8');
+        const parsed = JSON.parse(contents);
+        return { id: workflowId, workflow_json: parsed };
+      } catch (fileError) {
+        if (fileError.code !== 'ENOENT') {
+          logger.warn(`Unable to load workflow from ${workflowFile}:`, fileError.message);
+        }
+      }
+    }
+
     const result = await pool.query(
       'SELECT * FROM workflows WHERE id = $1',
       [workflowId]

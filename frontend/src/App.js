@@ -11,6 +11,7 @@ import FilesPage from './pages/FilesPage';
 import SystemInfoPage from './pages/SystemInfoPage';
 import SettingsPage from './pages/SettingsPage';
 import ApiDocsPage from './pages/ApiDocsPage';
+import ApiKeysPage from './pages/ApiKeysPage';
 import ErrorBoundary from './components/ErrorBoundary';
 
 function App() {
@@ -28,6 +29,7 @@ function App() {
             <Route path="/files" element={<FilesPage />} />
             <Route path="/system" element={<SystemInfoPage />} />
             <Route path="/settings" element={<SettingsPage />} />
+            <Route path="/api-keys" element={<ApiKeysPage />} />
             <Route path="/api-docs" element={<ApiDocsPage />} />
           </Routes>
         </Layout>

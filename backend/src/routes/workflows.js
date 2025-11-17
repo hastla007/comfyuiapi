@@ -3,7 +3,7 @@ const router = express.Router();
 const { pool } = require('../database');
 const { authenticateApiKey, requireAdmin } = require('../middleware/auth');
 const logger = require('../utils/logger');
-const { getContainer } = require('../docker');
+const { getContainer, restartContainer, getVolumeBase } = require('../docker');
 const fs = require('fs').promises;
 const path = require('path');
 
@@ -272,10 +272,11 @@ router.post('/:id/assign/:containerId', async (req, res) => {
     const sanitizedId = Math.floor(instanceId);
 
     // Construct and validate workflow path to prevent path traversal
-    const workflowDir = path.resolve('/app/workflows', `instance-${sanitizedId}`);
+    const workflowsBase = path.resolve(getVolumeBase(), 'workflows');
+    const workflowDir = path.resolve(workflowsBase, `instance-${sanitizedId}`);
 
-    // Verify the resolved path is still within /app/workflows
-    if (!workflowDir.startsWith('/app/workflows/')) {
+    // Verify the resolved path is still within the workflows base directory
+    if (!workflowDir.startsWith(workflowsBase + path.sep)) {
       await client.query('ROLLBACK');
       return res.status(500).json({
         success: false,
@@ -320,6 +321,25 @@ router.post('/:id/assign/:containerId', async (req, res) => {
       // Write the new workflow file
       await fs.writeFile(resolvedWorkflowFile, JSON.stringify(workflow.rows[0].workflow_json, null, 2));
       logger.info(`Workflow assigned to container ${containerId}, instance ${instanceId}`);
+
+      // Restart running containers so ComfyUI picks up the new workflow file
+      if ((container.rows[0].status || '').toLowerCase() === 'running') {
+        try {
+          const restarted = await restartContainer(containerId);
+          const status = restarted?.State?.Status || 'restarting';
+          await client.query(
+            'UPDATE containers SET status = $1, updated_at = CURRENT_TIMESTAMP WHERE container_id = $2',
+            [status, containerId]
+          );
+        } catch (restartError) {
+          logger.error('Error restarting container after workflow assignment:', restartError);
+          await client.query('ROLLBACK');
+          return res.status(500).json({
+            success: false,
+            error: 'Failed to restart container with updated workflow'
+          });
+        }
+      }
 
       // Commit transaction on success
       await client.query('COMMIT');

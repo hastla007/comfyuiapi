@@ -290,15 +290,23 @@ function SystemInfoPage() {
             <div className="info-grid">
               <div className="info-item">
                 <span className="info-label">Platform:</span>
-                <span className="info-value">{metrics.system?.platform || 'N/A'}</span>
+                <span className="info-value">{metrics.system?.platform || health.system?.platform || 'N/A'}</span>
+              </div>
+              <div className="info-item">
+                <span className="info-label">Architecture:</span>
+                <span className="info-value">{health.system?.arch || 'N/A'}</span>
+              </div>
+              <div className="info-item">
+                <span className="info-label">Hostname:</span>
+                <span className="info-value">{metrics.system?.hostname || health.system?.hostname || 'N/A'}</span>
               </div>
               <div className="info-item">
                 <span className="info-label">Node Version:</span>
-                <span className="info-value">{metrics.system?.nodeVersion || 'N/A'}</span>
+                <span className="info-value">{metrics.system?.nodeVersion || health.system?.nodeVersion || 'N/A'}</span>
               </div>
               <div className="info-item">
                 <span className="info-label">Uptime:</span>
-                <span className="info-value">{formatUptime(metrics.system?.uptime)}</span>
+                <span className="info-value">{formatUptime(metrics.system?.uptime || health.system?.uptime)}</span>
               </div>
               <div className="info-item">
                 <span className="info-label">Active Containers:</span>
@@ -310,7 +318,7 @@ function SystemInfoPage() {
               </div>
               <div className="info-item">
                 <span className="info-label">API Version:</span>
-                <span className="info-value">1.0.0</span>
+                <span className="info-value">{health.version || 'N/A'}</span>
               </div>
             </div>
           </div>

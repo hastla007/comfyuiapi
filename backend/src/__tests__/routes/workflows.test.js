@@ -10,6 +10,8 @@ jest.mock('../../middleware/auth');
 jest.mock('../../utils/logger');
 jest.mock('../../docker', () => ({
   getContainer: jest.fn(),
+  restartContainer: jest.fn(),
+  getVolumeBase: jest.fn(() => '/app'),
 }));
 jest.mock('fs', () => {
   const EventEmitter = require('events');
@@ -41,6 +43,8 @@ describe('Workflows Routes', () => {
     authenticateApiKey.mockImplementation((req, res, next) => next());
     requireAdmin.mockImplementation((req, res, next) => next());
     docker.getContainer.mockReset();
+    docker.restartContainer.mockResolvedValue({ State: { Status: 'running' } });
+    docker.getVolumeBase.mockReturnValue('/app');
     docker.getContainer.mockReturnValue({
       inspect: jest.fn().mockResolvedValue({
         Name: '/test-container',
@@ -274,7 +278,7 @@ describe('Workflows Routes', () => {
       const mockClient = {
         query: jest.fn()
           .mockResolvedValueOnce({ rows: [] }) // BEGIN
-          .mockResolvedValueOnce({ rows: [{ id: 1 }] }) // Get container
+          .mockResolvedValueOnce({ rows: [{ id: 1, status: 'running' }] }) // Get container
           .mockResolvedValueOnce({ rows: [] }) // Update container
           .mockResolvedValueOnce({ rows: [{ workflow_json: {} }] }) // Get workflow
           .mockResolvedValueOnce({ rows: [] }), // COMMIT
@@ -283,13 +287,14 @@ describe('Workflows Routes', () => {
 
       pool.connect.mockResolvedValue(mockClient);
 
-      const response = await request(app)
-        .post('/api/workflows/1/assign/abcdef123456')
-        .expect(200);
+    const response = await request(app)
+      .post('/api/workflows/1/assign/abcdef123456')
+      .expect(200);
 
-      expect(response.body.success).toBe(true);
-      expect(mockClient.release).toHaveBeenCalled();
-    });
+    expect(response.body.success).toBe(true);
+    expect(docker.restartContainer).toHaveBeenCalledWith('abcdef123456');
+    expect(mockClient.release).toHaveBeenCalled();
+  });
 
     test('should reject invalid container ID format', async () => {
       const mockClient = {

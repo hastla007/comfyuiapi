@@ -356,9 +356,27 @@ router.post('/:id/restart', async (req, res) => {
 router.delete('/:id', requireAdmin, async (req, res) => {
   try {
     const { id } = req.params;
-    await removeContainer(id, true);
+    let dockerNotFound = false;
+
+    try {
+      await removeContainer(id, true);
+    } catch (dockerError) {
+      if (dockerError.message && dockerError.message.includes('not found')) {
+        dockerNotFound = true;
+        logger.warn(`Container ${id} already missing from Docker, cleaning up database entry.`);
+      } else {
+        throw dockerError;
+      }
+    }
+
     await pool.query('DELETE FROM containers WHERE container_id = $1', [id]);
-    res.json({ success: true, message: 'Container removed' });
+
+    res.json({
+      success: true,
+      message: dockerNotFound
+        ? 'Container record removed (Docker container was already missing)'
+        : 'Container removed'
+    });
   } catch (error) {
     logger.error('Error removing container:', error);
     res.status(500).json({ success: false, error: 'Failed to remove container' });
