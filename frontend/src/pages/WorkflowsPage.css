@@ -3,3 +3,13 @@
   color: #333;
   font-size: 1.75rem;
 }
+
+.workflows-error {
+  background: #fff3cd;
+  color: #856404;
+  border: 1px solid #ffeeba;
+  padding: 1rem 1.25rem;
+  border-radius: 6px;
+  margin: 0 0 1rem 0;
+  font-weight: 500;
+}

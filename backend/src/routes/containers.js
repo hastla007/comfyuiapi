@@ -28,13 +28,18 @@ router.get('/', async (req, res) => {
     // Merge Docker and DB info
     const containers = dockerContainers.map(dc => {
       const dbContainer = dbContainers.rows.find(dbc => dbc.container_id === dc.Id);
+      const { id: dbId, ...dbFields } = dbContainer || {};
+
       return {
         id: dc.Id,
-        name: (dc.Names && dc.Names[0]) ? dc.Names[0].replace('/', '') : 'unknown',
-        status: dc.State,
+        dockerId: dc.Id,
+        dbId: dbId ?? null,
+        container_id: dbFields.container_id || dc.Id,
+        name: (dc.Names && dc.Names[0]) ? dc.Names[0].replace('/', '') : dbFields?.name || 'unknown',
+        status: dbFields.status || dc.State,
         ports: dc.Ports,
         created: dc.Created,
-        ...(dbContainer || {})
+        ...dbFields
       };
     });
 
@@ -42,6 +47,26 @@ router.get('/', async (req, res) => {
   } catch (error) {
     logger.error('Error getting containers:', error);
     res.status(500).json({ success: false, error: 'Failed to retrieve containers' });
+  }
+});
+
+router.get('/load-status/:id', async (req, res) => {
+  try {
+    const { id } = req.params;
+    const result = await pool.query(
+      `SELECT * FROM container_load_status
+       WHERE id = $1 OR id = (SELECT id FROM containers WHERE container_id = $2)` ,
+      [id, id]
+    );
+
+    if (result.rows.length === 0) {
+      return res.status(404).json({ success: false, error: 'Container not found' });
+    }
+
+    res.json({ success: true, data: result.rows[0] });
+  } catch (error) {
+    logger.error('Error getting container load status:', error);
+    res.status(500).json({ success: false, error: 'Failed to retrieve load status' });
   }
 });
 
@@ -351,9 +376,27 @@ router.post('/:id/restart', async (req, res) => {
 router.delete('/:id', requireAdmin, async (req, res) => {
   try {
     const { id } = req.params;
-    await removeContainer(id, true);
+    let dockerNotFound = false;
+
+    try {
+      await removeContainer(id, true);
+    } catch (dockerError) {
+      if (dockerError.message && dockerError.message.includes('not found')) {
+        dockerNotFound = true;
+        logger.warn(`Container ${id} already missing from Docker, cleaning up database entry.`);
+      } else {
+        throw dockerError;
+      }
+    }
+
     await pool.query('DELETE FROM containers WHERE container_id = $1', [id]);
-    res.json({ success: true, message: 'Container removed' });
+
+    res.json({
+      success: true,
+      message: dockerNotFound
+        ? 'Container record removed (Docker container was already missing)'
+        : 'Container removed'
+    });
   } catch (error) {
     logger.error('Error removing container:', error);
     res.status(500).json({ success: false, error: 'Failed to remove container' });
@@ -387,7 +430,33 @@ router.get('/:id/stats', async (req, res) => {
   try {
     const { id } = req.params;
     const stats = await getContainerStats(id);
-    res.json({ success: true, stats });
+
+    const loadResult = await pool.query(
+      `SELECT 
+        c.max_concurrent_jobs,
+        COUNT(caj.id) as active_jobs
+       FROM containers c
+       LEFT JOIN container_active_jobs caj ON c.id = caj.container_id
+         AND caj.status = 'processing'
+       WHERE c.id = $1 OR c.container_id = $2
+       GROUP BY c.id, c.max_concurrent_jobs`,
+      [id, id]
+    );
+
+    const loadInfo = loadResult.rows[0] || { max_concurrent_jobs: 0, active_jobs: 0 };
+    const activeJobs = parseInt(loadInfo.active_jobs || 0, 10);
+
+    res.json({
+      success: true,
+      stats,
+      load: {
+        active_jobs: activeJobs,
+        max_concurrent_jobs: loadInfo.max_concurrent_jobs,
+        load_percent: loadInfo.max_concurrent_jobs
+          ? (activeJobs / loadInfo.max_concurrent_jobs) * 100
+          : 0
+      }
+    });
   } catch (error) {
     logger.error('Error getting stats:', error);
     res.status(500).json({ success: false, error: 'Failed to retrieve container stats' });

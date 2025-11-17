@@ -3,6 +3,7 @@ const router = express.Router();
 const { pool } = require('../database');
 const { authenticateApiKey, requireAdmin } = require('../middleware/auth');
 const logger = require('../utils/logger');
+const { getContainer, restartContainer, getVolumeBase } = require('../docker');
 const fs = require('fs').promises;
 const path = require('path');
 
@@ -197,13 +198,11 @@ router.post('/:id/assign/:containerId', async (req, res) => {
     const { id, containerId } = req.params;
     const numericId = parseInt(id, 10);
     if (isNaN(numericId) || numericId < 1) {
-      client.release();
       return res.status(400).json({ success: false, error: 'Invalid workflow ID' });
     }
 
     // Validate containerId format (Docker container IDs are 12-64 hex characters)
     if (!containerId || !/^[a-f0-9]{12,64}$/i.test(containerId)) {
-      client.release();
       return res.status(400).json({ success: false, error: 'Invalid container ID format' });
     }
 
@@ -211,12 +210,38 @@ router.post('/:id/assign/:containerId', async (req, res) => {
     await client.query('BEGIN');
 
     // Get container instance ID first to verify it exists
-    const container = await client.query('SELECT * FROM containers WHERE container_id = $1', [containerId]);
+    let container = await client.query('SELECT * FROM containers WHERE container_id = $1', [containerId]);
 
     if (container.rows.length === 0) {
-      await client.query('ROLLBACK');
-      client.release();
-      return res.status(404).json({ success: false, error: 'Container not found' });
+      // Container isn't tracked yet. Verify it exists in Docker and register it in the database.
+      try {
+        const dockerContainer = await getContainer(containerId);
+        const inspected = await dockerContainer.inspect();
+        const name = (inspected.Name || containerId).replace(/^\//, '');
+        const portBinding = inspected.NetworkSettings?.Ports?.['8188/tcp']?.[0]?.HostPort
+          || inspected.HostConfig?.PortBindings?.['8188/tcp']?.[0]?.HostPort;
+
+        if (!portBinding) {
+          throw new Error('Container port mapping not found for 8188/tcp');
+        }
+
+        const portNumber = parseInt(portBinding, 10);
+        if (!Number.isInteger(portNumber)) {
+          throw new Error('Container port mapping is invalid');
+        }
+
+        const status = inspected.State?.Status || 'unknown';
+        const inserted = await client.query(
+          'INSERT INTO containers (container_id, name, port, status) VALUES ($1, $2, $3, $4) RETURNING *',
+          [containerId, name, portNumber, status]
+        );
+        container = inserted;
+      } catch (lookupError) {
+        await client.query('ROLLBACK');
+        const statusCode = lookupError.statusCode === 404 ? 404 : 400;
+        const errorMessage = lookupError.statusCode === 404 ? 'Container not found' : lookupError.message;
+        return res.status(statusCode).json({ success: false, error: errorMessage });
+      }
     }
 
     const instanceId = container.rows[0].id;
@@ -232,14 +257,12 @@ router.post('/:id/assign/:containerId', async (req, res) => {
 
     if (workflow.rows.length === 0) {
       await client.query('ROLLBACK');
-      client.release();
       return res.status(404).json({ success: false, error: 'Workflow not found' });
     }
 
     // Validate and sanitize instance ID to prevent path traversal
     if (!Number.isSafeInteger(instanceId) || instanceId < 1 || instanceId > 100000) {
       await client.query('ROLLBACK');
-      client.release();
       return res.status(500).json({
         success: false,
         error: 'Invalid instance ID'
@@ -249,12 +272,12 @@ router.post('/:id/assign/:containerId', async (req, res) => {
     const sanitizedId = Math.floor(instanceId);
 
     // Construct and validate workflow path to prevent path traversal
-    const workflowDir = path.resolve('/app/workflows', `instance-${sanitizedId}`);
+    const workflowsBase = path.resolve(getVolumeBase(), 'workflows');
+    const workflowDir = path.resolve(workflowsBase, `instance-${sanitizedId}`);
 
-    // Verify the resolved path is still within /app/workflows
-    if (!workflowDir.startsWith('/app/workflows/')) {
+    // Verify the resolved path is still within the workflows base directory
+    if (!workflowDir.startsWith(workflowsBase + path.sep)) {
       await client.query('ROLLBACK');
-      client.release();
       return res.status(500).json({
         success: false,
         error: 'Invalid workflow path'
@@ -267,7 +290,6 @@ router.post('/:id/assign/:containerId', async (req, res) => {
     const resolvedWorkflowFile = path.resolve(workflowFile);
     if (!resolvedWorkflowFile.startsWith(workflowDir + path.sep)) {
       await client.query('ROLLBACK');
-      client.release();
       return res.status(500).json({
         success: false,
         error: 'Invalid workflow file path'
@@ -300,6 +322,25 @@ router.post('/:id/assign/:containerId', async (req, res) => {
       await fs.writeFile(resolvedWorkflowFile, JSON.stringify(workflow.rows[0].workflow_json, null, 2));
       logger.info(`Workflow assigned to container ${containerId}, instance ${instanceId}`);
 
+      // Restart running containers so ComfyUI picks up the new workflow file
+      if ((container.rows[0].status || '').toLowerCase() === 'running') {
+        try {
+          const restarted = await restartContainer(containerId);
+          const status = restarted?.State?.Status || 'restarting';
+          await client.query(
+            'UPDATE containers SET status = $1, updated_at = CURRENT_TIMESTAMP WHERE container_id = $2',
+            [status, containerId]
+          );
+        } catch (restartError) {
+          logger.error('Error restarting container after workflow assignment:', restartError);
+          await client.query('ROLLBACK');
+          return res.status(500).json({
+            success: false,
+            error: 'Failed to restart container with updated workflow'
+          });
+        }
+      }
+
       // Commit transaction on success
       await client.query('COMMIT');
       res.json({ success: true, message: 'Workflow assigned to container' });
@@ -318,7 +359,7 @@ router.post('/:id/assign/:containerId', async (req, res) => {
     const errorMessage = error.message || 'Failed to assign workflow to container';
     res.status(500).json({
       success: false,
-      error: 'Failed to assign workflow to container',
+      error: errorMessage,
       details: process.env.NODE_ENV === 'development' ? errorMessage : undefined
     });
   } finally {

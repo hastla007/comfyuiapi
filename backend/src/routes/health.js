@@ -1,13 +1,14 @@
 const express = require('express');
 const router = express.Router();
 const { pool } = require('../database');
-const docker = require('../docker');
+const { docker } = require('../docker');
 const { register, getSystemMetrics } = require('../middleware/metrics');
 const { requireAdmin } = require('../middleware/auth');
 const logger = require('../utils/logger');
 const os = require('os');
 const fs = require('fs').promises;
 const path = require('path');
+const { version } = require('../../package.json');
 
 // Main health check endpoint
 router.get('/', async (req, res) => {
@@ -19,7 +20,14 @@ router.get('/', async (req, res) => {
       database: await checkDatabase(),
       docker: await checkDocker(),
       memory: getMemoryUsage(),
-      version: '1.0.0'
+      version,
+      system: {
+        platform: os.platform(),
+        arch: os.arch(),
+        nodeVersion: process.version,
+        hostname: os.hostname(),
+        uptime: os.uptime()
+      }
     };
 
     // Set overall status based on component health
