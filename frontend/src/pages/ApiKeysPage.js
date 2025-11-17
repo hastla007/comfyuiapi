@@ -93,7 +93,7 @@ function ApiKeysPage() {
             <p>Create and manage API keys for authenticated access.</p>
           </div>
         </div>
-        <button className="btn" onClick={() => fetchKeys()} disabled={loadingKeys}>
+        <button className="btn refresh-btn" onClick={() => fetchKeys()} disabled={loadingKeys}>
           <RefreshCw size={16} /> Refresh Keys
         </button>
       </div>

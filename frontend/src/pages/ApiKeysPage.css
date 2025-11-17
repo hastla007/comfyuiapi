@@ -11,6 +11,13 @@
   gap: 12px;
 }
 
+.api-keys-header .refresh-btn {
+  margin-left: auto;
+  align-self: flex-start;
+  padding: 8px 10px;
+  white-space: nowrap;
+}
+
 .api-keys-header .title {
   display: flex;
   align-items: center;
