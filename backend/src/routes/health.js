@@ -1,7 +1,7 @@
 const express = require('express');
 const router = express.Router();
 const { pool } = require('../database');
-const docker = require('../docker');
+const { docker } = require('../docker');
 const { register, getSystemMetrics } = require('../middleware/metrics');
 const { requireAdmin } = require('../middleware/auth');
 const logger = require('../utils/logger');
