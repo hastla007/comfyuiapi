@@ -50,6 +50,26 @@ router.get('/', async (req, res) => {
   }
 });
 
+router.get('/load-status/:id', async (req, res) => {
+  try {
+    const { id } = req.params;
+    const result = await pool.query(
+      `SELECT * FROM container_load_status
+       WHERE id = $1 OR id = (SELECT id FROM containers WHERE container_id = $2)` ,
+      [id, id]
+    );
+
+    if (result.rows.length === 0) {
+      return res.status(404).json({ success: false, error: 'Container not found' });
+    }
+
+    res.json({ success: true, data: result.rows[0] });
+  } catch (error) {
+    logger.error('Error getting container load status:', error);
+    res.status(500).json({ success: false, error: 'Failed to retrieve load status' });
+  }
+});
+
 /**
  * POST /api/containers - Create a new container
  * Public endpoint - no authentication required for frontend access
@@ -410,7 +430,33 @@ router.get('/:id/stats', async (req, res) => {
   try {
     const { id } = req.params;
     const stats = await getContainerStats(id);
-    res.json({ success: true, stats });
+
+    const loadResult = await pool.query(
+      `SELECT 
+        c.max_concurrent_jobs,
+        COUNT(caj.id) as active_jobs
+       FROM containers c
+       LEFT JOIN container_active_jobs caj ON c.id = caj.container_id
+         AND caj.status = 'processing'
+       WHERE c.id = $1 OR c.container_id = $2
+       GROUP BY c.id, c.max_concurrent_jobs`,
+      [id, id]
+    );
+
+    const loadInfo = loadResult.rows[0] || { max_concurrent_jobs: 0, active_jobs: 0 };
+    const activeJobs = parseInt(loadInfo.active_jobs || 0, 10);
+
+    res.json({
+      success: true,
+      stats,
+      load: {
+        active_jobs: activeJobs,
+        max_concurrent_jobs: loadInfo.max_concurrent_jobs,
+        load_percent: loadInfo.max_concurrent_jobs
+          ? (activeJobs / loadInfo.max_concurrent_jobs) * 100
+          : 0
+      }
+    });
   } catch (error) {
     logger.error('Error getting stats:', error);
     res.status(500).json({ success: false, error: 'Failed to retrieve container stats' });

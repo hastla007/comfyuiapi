@@ -60,20 +60,25 @@ describe('ContainerMonitor', () => {
     });
 
     getContainer.mockReturnValue({ inspect: inspectMock, stats: statsMock });
-    pool.query.mockResolvedValue({ rows: [] });
+    pool.query
+      .mockResolvedValueOnce({ rows: [{ active_jobs: 0 }] })
+      .mockResolvedValue({ rows: [] });
 
     await monitor.checkContainer(dbContainer);
 
     expect(getContainer).toHaveBeenCalledWith('abc123');
     expect(inspectMock).toHaveBeenCalled();
     expect(pool.query).toHaveBeenCalledWith(
-      'UPDATE containers SET status = $1, updated_at = CURRENT_TIMESTAMP WHERE id = $2',
-      ['running', 1]
+      `SELECT COUNT(*) as active_jobs FROM container_active_jobs
+         WHERE container_id = $1 AND status = 'processing'`,
+      [1]
     );
     expect(websocketService.broadcastContainerStatus).toHaveBeenCalledWith(1, expect.objectContaining({
       status: 'running',
       name: 'container-one',
-      port: 8188
+      port: 8188,
+      activeJobs: 0,
+      healthStatus: 'healthy'
     }));
   });
 });
