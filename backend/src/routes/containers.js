@@ -28,13 +28,18 @@ router.get('/', async (req, res) => {
     // Merge Docker and DB info
     const containers = dockerContainers.map(dc => {
       const dbContainer = dbContainers.rows.find(dbc => dbc.container_id === dc.Id);
+      const { id: dbId, ...dbFields } = dbContainer || {};
+
       return {
         id: dc.Id,
-        name: (dc.Names && dc.Names[0]) ? dc.Names[0].replace('/', '') : 'unknown',
-        status: dc.State,
+        dockerId: dc.Id,
+        dbId: dbId ?? null,
+        container_id: dbFields.container_id || dc.Id,
+        name: (dc.Names && dc.Names[0]) ? dc.Names[0].replace('/', '') : dbFields?.name || 'unknown',
+        status: dbFields.status || dc.State,
         ports: dc.Ports,
         created: dc.Created,
-        ...(dbContainer || {})
+        ...dbFields
       };
     });
 
