@@ -17,7 +17,8 @@ services:
     environment:
       - NODE_ENV=production
       - DOCKER_HOST=unix:///var/run/docker.sock
-      - VOLUME_BASE=${PWD:-/home/user/comfyuiapi}
+      - ENABLE_GPU=${ENABLE_GPU:-true}
+      - VOLUME_BASE=${VOLUME_BASE:-${COMPOSE_PROJECT_DIR:-/home/user/comfyuiapi}}
       - COMFYUI_IMAGE=${COMFYUI_IMAGE:-comfyuiapi-comfyui:latest}
       - DB_HOST=db
       - DB_PORT=5432

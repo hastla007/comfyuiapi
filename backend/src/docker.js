@@ -1,5 +1,11 @@
 const Docker = require('dockerode');
 
+const volumeBase = process.env.VOLUME_BASE || process.env.COMPOSE_PROJECT_DIR || '/app';
+
+function getVolumeBase() {
+  return volumeBase;
+}
+
 // Use DOCKER_HOST environment variable if available, otherwise default to unix socket
 let dockerConfig;
 
@@ -48,6 +54,9 @@ async function testDockerConnection() {
  */
 async function ensureNetwork() {
   const networkName = 'comfyui-network';
+  if (process.env.SKIP_DOCKER_NETWORK_CHECK === 'true') {
+    return true;
+  }
   try {
     // Check if network exists
     const networks = await docker.listNetworks({
@@ -91,6 +100,10 @@ function getContainer(containerId) {
  * Check if Docker image exists
  */
 async function ensureImage(imageName) {
+  if (process.env.SKIP_DOCKER_IMAGE_CHECK === 'true') {
+    return true;
+  }
+
   try {
     await docker.getImage(imageName).inspect();
     console.log(`Docker image ${imageName} found`);
@@ -107,7 +120,9 @@ async function ensureImage(imageName) {
  * Create a new ComfyUI container
  */
 async function createContainer(config) {
-  const { name, port, workflowPath, instanceId, enableGpu = true } = config;
+  const { name, port, workflowPath, instanceId, enableGpu } = config;
+
+  const gpuEnabled = enableGpu !== undefined ? enableGpu : process.env.ENABLE_GPU !== 'false';
 
   // Validate required configuration
   if (!instanceId || !port) {
@@ -121,9 +136,6 @@ async function createContainer(config) {
 
   // Ensure network exists before creating container
   await ensureNetwork();
-
-  // Use environment variable for volume base path, fallback to /app for production
-  const volumeBase = process.env.VOLUME_BASE || '/app';
 
   const containerConfig = {
     Image: imageName,
@@ -156,7 +168,7 @@ async function createContainer(config) {
   };
 
   // Only add GPU device requests if enabled
-  if (enableGpu) {
+  if (gpuEnabled) {
     containerConfig.HostConfig.DeviceRequests = [
       {
         Driver: 'nvidia',
@@ -320,5 +332,6 @@ module.exports = {
   restartContainer,
   removeContainer,
   getContainerLogs,
-  getContainerStats
+  getContainerStats,
+  getVolumeBase
 };
