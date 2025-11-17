@@ -16,6 +16,16 @@
   font-size: 1.75rem;
 }
 
+.error-banner {
+  background: #fff3cd;
+  color: #856404;
+  border: 1px solid #ffeeba;
+  padding: 1rem 1.25rem;
+  border-radius: 6px;
+  margin-bottom: 1rem;
+  font-weight: 500;
+}
+
 .system-controls {
   display: flex;
   gap: 0.75rem;

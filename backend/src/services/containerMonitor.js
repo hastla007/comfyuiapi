@@ -74,7 +74,7 @@ class ContainerMonitor {
    */
   async checkContainer(dbContainer) {
     try {
-      const dockerContainer = getContainer(dbContainer.docker_container_id);
+      const dockerContainer = getContainer(dbContainer.container_id);
       const inspect = await dockerContainer.inspect();
 
       const currentState = {

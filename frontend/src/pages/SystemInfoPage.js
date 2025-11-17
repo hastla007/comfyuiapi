@@ -4,6 +4,7 @@ import { LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, Legend, Responsi
 import { RefreshCw, Cpu, HardDrive, Activity, Server, Database, CheckCircle, XCircle } from 'lucide-react';
 import { API_URL } from '../config';
 import './SystemInfoPage.css';
+import { extractErrorMessage } from '../utils/errorMessage';
 
 function SystemInfoPage() {
   const [metrics, setMetrics] = useState({});
@@ -11,6 +12,7 @@ function SystemInfoPage() {
   const [history, setHistory] = useState([]);
   const [loading, setLoading] = useState(true);
   const [autoRefresh, setAutoRefresh] = useState(true);
+  const [error, setError] = useState('');
 
   useEffect(() => {
     fetchSystemInfo();
@@ -23,13 +25,16 @@ function SystemInfoPage() {
 
   const fetchSystemInfo = async () => {
     try {
-      const [metricsRes, healthRes] = await Promise.all([
+      const [metricsResult, healthResult] = await Promise.allSettled([
         axios.get(`${API_URL}/health/metrics/custom`),
-        axios.get(`${API_URL}/health`)
+        axios.get(`${API_URL}/health`, { validateStatus: () => true })
       ]);
 
-      if (metricsRes.data.success) {
-        const newMetrics = metricsRes.data.metrics;
+      const errors = [];
+
+      const metricsSuccess = metricsResult?.status === 'fulfilled' && metricsResult.value?.data?.success;
+      if (metricsSuccess) {
+        const newMetrics = metricsResult.value.data.metrics;
         setMetrics(newMetrics);
 
         // Update history for charts
@@ -45,13 +50,28 @@ function SystemInfoPage() {
           ].slice(-20); // Keep last 20 entries
           return updated;
         });
+      } else if (metricsResult) {
+        const metricsError = metricsResult.status === 'rejected'
+          ? metricsResult.reason
+          : metricsResult.value?.data?.error || metricsResult.value?.data;
+        errors.push(`Metrics: ${extractErrorMessage(metricsError) || 'Failed to load metrics'}`);
       }
 
-      if (healthRes.data.success) {
-        setHealth(healthRes.data);
+      const healthFulfilled = healthResult?.status === 'fulfilled';
+      const healthData = healthFulfilled ? healthResult.value?.data : null;
+      if (healthData?.success || healthData?.status) {
+        setHealth(healthData);
+      } else if (healthResult) {
+        const healthError = healthResult.status === 'rejected'
+          ? healthResult.reason
+          : healthResult.value?.data?.error || healthResult.value?.data;
+        errors.push(`Health: ${extractErrorMessage(healthError) || 'Failed to load health status'}`);
       }
+
+      setError(errors.join(' | '));
     } catch (error) {
       console.error('Error fetching system info:', error);
+      setError(extractErrorMessage(error) || 'Unable to load system information. Check API connectivity and CORS settings.');
     } finally {
       setLoading(false);
     }
@@ -98,6 +118,21 @@ function SystemInfoPage() {
     return value.toFixed(1);
   };
 
+  const formatConnections = (connections) => {
+    if (connections === null || connections === undefined) {
+      return '0';
+    }
+
+    if (typeof connections === 'object') {
+      const total = connections.total ?? 0;
+      const idle = connections.idle ?? 0;
+      const waiting = connections.waiting ?? 0;
+      return `${total} (idle ${idle}, waiting ${waiting})`;
+    }
+
+    return String(connections);
+  };
+
   return (
     <div className="system-info-page">
       <div className="system-header">
@@ -121,6 +156,7 @@ function SystemInfoPage() {
         <div className="loading">Loading system info...</div>
       ) : (
         <>
+          {error && <div className="error-banner">{error}</div>}
           {/* Docker Desktop Warning */}
           {metrics.system?.dockerDesktop && (
             <div className="docker-desktop-notice">
@@ -269,7 +305,7 @@ function SystemInfoPage() {
               </div>
               <div className="info-item">
                 <span className="info-label">Database Connections:</span>
-                <span className="info-value">{health.database?.connections || 0}</span>
+                <span className="info-value">{formatConnections(health.database?.connections)}</span>
               </div>
               <div className="info-item">
                 <span className="info-label">API Version:</span>
