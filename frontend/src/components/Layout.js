@@ -2,9 +2,6 @@ import React from 'react';
 import { NavLink } from 'react-router-dom';
 import {
   Container,
-  Workflow,
-  FileText,
-  List,
   Briefcase,
   FolderOpen,
   Activity,
@@ -17,15 +14,29 @@ import './Layout.css';
 function Layout({ children }) {
   const navItems = [
     { path: '/containers', icon: Container, label: 'Containers' },
-    { path: '/workflows', icon: Workflow, label: 'Workflows' },
-    { path: '/logs', icon: FileText, label: 'Logs' },
-    { path: '/queue', icon: List, label: 'Queue' },
     { path: '/jobs', icon: Briefcase, label: 'Jobs' },
     { path: '/files', icon: FolderOpen, label: 'Files' },
-    { path: '/system', icon: Activity, label: 'System Info' },
-    { path: '/api-keys', icon: KeyRound, label: 'API Keys' },
-    { path: '/settings', icon: Settings, label: 'Settings' },
-    { path: '/api-docs', icon: BookOpen, label: 'API Docs' },
+    {
+      path: '/system',
+      icon: Activity,
+      label: 'System',
+      children: [
+        { path: '/system', label: 'Overview' },
+        { path: '/workflows', label: 'Workflows' },
+        { path: '/logs', label: 'Logs' },
+        { path: '/settings', label: 'Settings' },
+      ],
+    },
+    {
+      path: '/api-docs',
+      icon: BookOpen,
+      label: 'API',
+      children: [
+        { path: '/queue', label: 'Queue' },
+        { path: '/api-docs', label: 'API Docs' },
+        { path: '/api-keys', label: 'API Keys' },
+      ],
+    },
   ];
 
   return (
@@ -36,17 +47,34 @@ function Layout({ children }) {
       </header>
 
       <nav className="layout-nav">
-        {navItems.map(({ path, icon: Icon, label }) => (
-          <NavLink
-            key={path}
-            to={path}
-            className={({ isActive }) =>
-              `nav-item ${isActive ? 'active' : ''}`
-            }
-          >
-            <Icon size={18} />
-            <span>{label}</span>
-          </NavLink>
+        {navItems.map(({ path, icon: Icon, label, children }) => (
+          <div key={path} className="nav-group">
+            <NavLink
+              to={path}
+              className={({ isActive }) =>
+                `nav-item ${isActive ? 'active' : ''}`
+              }
+            >
+              <Icon size={18} />
+              <span>{label}</span>
+            </NavLink>
+
+            {children?.length ? (
+              <div className="nav-subitems">
+                {children.map((child) => (
+                  <NavLink
+                    key={child.path}
+                    to={child.path}
+                    className={({ isActive }) =>
+                      `nav-subitem ${isActive ? 'active' : ''}`
+                    }
+                  >
+                    <span>{child.label}</span>
+                  </NavLink>
+                ))}
+              </div>
+            ) : null}
+          </div>
         ))}
       </nav>
 
