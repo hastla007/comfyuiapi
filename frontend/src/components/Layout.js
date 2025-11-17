@@ -9,6 +9,7 @@ import {
   FolderOpen,
   Activity,
   Settings,
+  KeyRound,
   BookOpen
 } from 'lucide-react';
 import './Layout.css';
@@ -22,6 +23,7 @@ function Layout({ children }) {
     { path: '/jobs', icon: Briefcase, label: 'Jobs' },
     { path: '/files', icon: FolderOpen, label: 'Files' },
     { path: '/system', icon: Activity, label: 'System Info' },
+    { path: '/api-keys', icon: KeyRound, label: 'API Keys' },
     { path: '/settings', icon: Settings, label: 'Settings' },
     { path: '/api-docs', icon: BookOpen, label: 'API Docs' },
   ];

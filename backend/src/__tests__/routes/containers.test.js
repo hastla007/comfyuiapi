@@ -29,7 +29,7 @@ describe('Containers Routes', () => {
         { Id: 'abc123', Names: ['/container1'], State: 'running', Ports: [], Created: Date.now() }
       ];
       const mockDbContainers = {
-        rows: [{ container_id: 'abc123', name: 'container1', port: 8188 }]
+        rows: [{ id: 42, container_id: 'abc123', name: 'container1', port: 8188 }]
       };
 
       docker.getAllContainers.mockResolvedValue(mockDockerContainers);
@@ -42,6 +42,10 @@ describe('Containers Routes', () => {
       expect(response.body.success).toBe(true);
       expect(response.body.containers).toHaveLength(1);
       expect(response.body.containers[0].name).toBe('container1');
+      expect(response.body.containers[0].id).toBe('abc123');
+      expect(response.body.containers[0].dockerId).toBe('abc123');
+      expect(response.body.containers[0].dbId).toBe(42);
+      expect(response.body.containers[0].container_id).toBe('abc123');
     });
 
     test('should handle Docker errors', async () => {
