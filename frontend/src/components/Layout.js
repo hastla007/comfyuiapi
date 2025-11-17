@@ -6,6 +6,7 @@ import {
   FolderOpen,
   Activity,
   Settings,
+  KeyRound,
   BookOpen
 } from 'lucide-react';
 import './Layout.css';
