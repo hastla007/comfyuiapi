@@ -11,6 +11,8 @@ RUN apt-get update && apt-get install -y \
     python3.10-distutils \
     git \
     wget \
+    ca-certificates \
+    ffmpeg \
     libgl1-mesa-glx \
     libglib2.0-0 \
     build-essential \
