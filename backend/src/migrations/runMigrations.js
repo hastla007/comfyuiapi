@@ -7,10 +7,16 @@ async function runMigrations() {
   try {
     console.log('Running database migrations...');
 
-    const migrationPath = path.join(__dirname, 'comprehensive-features.sql');
-    const migrationSQL = await fs.readFile(migrationPath, 'utf-8');
+    const migrationFiles = [
+      'comprehensive-features.sql',
+      'add-container-load-tracking.sql'
+    ];
 
-    await client.query(migrationSQL);
+    for (const file of migrationFiles) {
+      const migrationPath = path.join(__dirname, file);
+      const migrationSQL = await fs.readFile(migrationPath, 'utf-8');
+      await client.query(migrationSQL);
+    }
 
     console.log('✅ Database migrations completed successfully');
   } catch (error) {

@@ -4,13 +4,16 @@ import { LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, Legend, Responsi
 import { RefreshCw, Cpu, HardDrive, Activity, Server, Database, CheckCircle, XCircle } from 'lucide-react';
 import { API_URL } from '../config';
 import './SystemInfoPage.css';
+import { extractErrorMessage } from '../utils/errorMessage';
 
 function SystemInfoPage() {
   const [metrics, setMetrics] = useState({});
   const [health, setHealth] = useState({});
+  const [gpus, setGpus] = useState([]);
   const [history, setHistory] = useState([]);
   const [loading, setLoading] = useState(true);
   const [autoRefresh, setAutoRefresh] = useState(true);
+  const [error, setError] = useState('');
 
   useEffect(() => {
     fetchSystemInfo();
@@ -23,14 +26,18 @@ function SystemInfoPage() {
 
   const fetchSystemInfo = async () => {
     try {
-      const [metricsRes, healthRes] = await Promise.all([
+      const [metricsResult, healthResult] = await Promise.allSettled([
         axios.get(`${API_URL}/health/metrics/custom`),
-        axios.get(`${API_URL}/health`)
+        axios.get(`${API_URL}/health`, { validateStatus: () => true })
       ]);
 
-      if (metricsRes.data.success) {
-        const newMetrics = metricsRes.data.metrics;
+      const errors = [];
+
+      const metricsSuccess = metricsResult?.status === 'fulfilled' && metricsResult.value?.data?.success;
+      if (metricsSuccess) {
+        const newMetrics = metricsResult.value.data.metrics;
         setMetrics(newMetrics);
+        setGpus(metricsResult.value.data.gpus || []);
 
         // Update history for charts
         setHistory(prev => {
@@ -45,13 +52,31 @@ function SystemInfoPage() {
           ].slice(-20); // Keep last 20 entries
           return updated;
         });
+      } else if (metricsResult) {
+        const metricsError = metricsResult.status === 'rejected'
+          ? metricsResult.reason
+          : metricsResult.value?.data?.error || metricsResult.value?.data;
+        errors.push(`Metrics: ${extractErrorMessage(metricsError) || 'Failed to load metrics'}`);
       }
 
-      if (healthRes.data.success) {
-        setHealth(healthRes.data);
+      const healthFulfilled = healthResult?.status === 'fulfilled';
+      const healthData = healthFulfilled ? healthResult.value?.data : null;
+      if (healthData?.success || healthData?.status) {
+        setHealth(healthData);
+        if (healthData.gpus?.length) {
+          setGpus(healthData.gpus);
+        }
+      } else if (healthResult) {
+        const healthError = healthResult.status === 'rejected'
+          ? healthResult.reason
+          : healthResult.value?.data?.error || healthResult.value?.data;
+        errors.push(`Health: ${extractErrorMessage(healthError) || 'Failed to load health status'}`);
       }
+
+      setError(errors.join(' | '));
     } catch (error) {
       console.error('Error fetching system info:', error);
+      setError(extractErrorMessage(error) || 'Unable to load system information. Check API connectivity and CORS settings.');
     } finally {
       setLoading(false);
     }
@@ -98,6 +123,26 @@ function SystemInfoPage() {
     return value.toFixed(1);
   };
 
+  const formatGb = (bytes) => {
+    if (!bytes || bytes < 0) return '0.0';
+    return (bytes / (1024 * 1024 * 1024)).toFixed(1);
+  };
+
+  const formatConnections = (connections) => {
+    if (connections === null || connections === undefined) {
+      return '0';
+    }
+
+    if (typeof connections === 'object') {
+      const total = connections.total ?? 0;
+      const idle = connections.idle ?? 0;
+      const waiting = connections.waiting ?? 0;
+      return `${total} (idle ${idle}, waiting ${waiting})`;
+    }
+
+    return String(connections);
+  };
+
   return (
     <div className="system-info-page">
       <div className="system-header">
@@ -121,6 +166,7 @@ function SystemInfoPage() {
         <div className="loading">Loading system info...</div>
       ) : (
         <>
+          {error && <div className="error-banner">{error}</div>}
           {/* Docker Desktop Warning */}
           {metrics.system?.dockerDesktop && (
             <div className="docker-desktop-notice">
@@ -224,6 +270,21 @@ function SystemInfoPage() {
             </div>
           </div>
 
+          {gpus.length > 0 && (
+            <div className="gpus-section">
+              <h3>GPU Utilization</h3>
+              <div className="gpus-grid">
+                {gpus.map(gpu => (
+                  <div key={gpu.index} className="gpu-card">
+                    <div className="gpu-title">{gpu.name || `GPU ${gpu.index}`}</div>
+                    <div className="gpu-stat">VRAM: {formatGb(gpu.memory?.used)} / {formatGb(gpu.memory?.total)} GB</div>
+                    <div className="gpu-stat">Utilization: {gpu.utilization ?? 0}%</div>
+                  </div>
+                ))}
+              </div>
+            </div>
+          )}
+
           {/* Charts */}
           <div className="charts-section">
             <h3>Resource History</h3>
@@ -253,15 +314,23 @@ function SystemInfoPage() {
             <div className="info-grid">
               <div className="info-item">
                 <span className="info-label">Platform:</span>
-                <span className="info-value">{metrics.system?.platform || 'N/A'}</span>
+                <span className="info-value">{metrics.system?.platform || health.system?.platform || 'N/A'}</span>
+              </div>
+              <div className="info-item">
+                <span className="info-label">Architecture:</span>
+                <span className="info-value">{health.system?.arch || 'N/A'}</span>
+              </div>
+              <div className="info-item">
+                <span className="info-label">Hostname:</span>
+                <span className="info-value">{metrics.system?.hostname || health.system?.hostname || 'N/A'}</span>
               </div>
               <div className="info-item">
                 <span className="info-label">Node Version:</span>
-                <span className="info-value">{metrics.system?.nodeVersion || 'N/A'}</span>
+                <span className="info-value">{metrics.system?.nodeVersion || health.system?.nodeVersion || 'N/A'}</span>
               </div>
               <div className="info-item">
                 <span className="info-label">Uptime:</span>
-                <span className="info-value">{formatUptime(metrics.system?.uptime)}</span>
+                <span className="info-value">{formatUptime(metrics.system?.uptime || health.system?.uptime)}</span>
               </div>
               <div className="info-item">
                 <span className="info-label">Active Containers:</span>
@@ -269,11 +338,11 @@ function SystemInfoPage() {
               </div>
               <div className="info-item">
                 <span className="info-label">Database Connections:</span>
-                <span className="info-value">{health.database?.connections || 0}</span>
+                <span className="info-value">{formatConnections(health.database?.connections)}</span>
               </div>
               <div className="info-item">
                 <span className="info-label">API Version:</span>
-                <span className="info-value">1.0.0</span>
+                <span className="info-value">{health.version || 'N/A'}</span>
               </div>
             </div>
           </div>
