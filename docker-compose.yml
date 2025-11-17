@@ -19,7 +19,8 @@ services:
     environment:
       - NODE_ENV=production
       - DOCKER_HOST=unix:///var/run/docker.sock
-      - VOLUME_BASE=${PWD:-/home/user/comfyuiapi}
+      - ENABLE_GPU=${ENABLE_GPU:-true}
+      - VOLUME_BASE=${VOLUME_BASE:-${COMPOSE_PROJECT_DIR:-/home/user/comfyuiapi}}
       - COMFYUI_IMAGE=${COMFYUI_IMAGE:-comfyuiapi-comfyui:latest}
       - DB_HOST=db
       - DB_PORT=5432
@@ -71,6 +72,7 @@ services:
   # ComfyUI Instance 1 (template - can be scaled)
   comfyui-1:
     build: ./comfyui
+    image: ${COMFYUI_IMAGE:-comfyuiapi-comfyui:latest}
     container_name: comfyui-instance-1
     ports:
       - "8188:8188"
@@ -94,7 +96,8 @@ services:
 
   # ComfyUI Instance 2
   comfyui-2:
-    build: ./comfyui
+    image: ${COMFYUI_IMAGE:-comfyuiapi-comfyui:latest}
+    # Uses the image built by comfyui-1 to avoid duplicate parallel builds
     container_name: comfyui-instance-2
     ports:
       - "8189:8188"

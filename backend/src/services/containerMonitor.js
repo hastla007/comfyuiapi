@@ -74,8 +74,15 @@ class ContainerMonitor {
    */
   async checkContainer(dbContainer) {
     try {
-      const dockerContainer = getContainer(dbContainer.docker_container_id);
+      const dockerContainer = getContainer(dbContainer.container_id);
       const inspect = await dockerContainer.inspect();
+
+      const jobCountResult = await pool.query(
+        `SELECT COUNT(*) as active_jobs FROM container_active_jobs
+         WHERE container_id = $1 AND status = 'processing'`,
+        [dbContainer.id]
+      );
+      const activeJobs = parseInt(jobCountResult.rows[0]?.active_jobs || 0, 10);
 
       const currentState = {
         status: inspect.State.Running ? 'running' : 'stopped',
@@ -83,7 +90,9 @@ class ContainerMonitor {
         startedAt: inspect.State.StartedAt,
         finishedAt: inspect.State.FinishedAt,
         exitCode: inspect.State.ExitCode,
-        pid: inspect.State.Pid
+        pid: inspect.State.Pid,
+        activeJobs,
+        healthStatus: this.calculateHealthStatus(null, activeJobs, dbContainer.max_concurrent_jobs)
       };
 
       // Get container stats if running
@@ -92,6 +101,11 @@ class ContainerMonitor {
         try {
           const statsStream = await dockerContainer.stats({ stream: false });
           stats = this.parseStats(statsStream);
+          currentState.healthStatus = this.calculateHealthStatus(
+            stats,
+            activeJobs,
+            dbContainer.max_concurrent_jobs
+          );
         } catch (error) {
           logger.debug(`Failed to get stats for container ${dbContainer.id}:`, error.message);
         }
@@ -102,11 +116,18 @@ class ContainerMonitor {
       const hasChanged = !lastState || JSON.stringify(lastState) !== JSON.stringify(currentState);
 
       if (hasChanged) {
-        // Update database if status changed
+        // Update database if status or health changed
         if (!lastState || lastState.status !== currentState.status) {
           await pool.query(
             'UPDATE containers SET status = $1, updated_at = CURRENT_TIMESTAMP WHERE id = $2',
             [currentState.status, dbContainer.id]
+          );
+        }
+
+        if (!lastState || lastState.healthStatus !== currentState.healthStatus) {
+          await pool.query(
+            'UPDATE containers SET health_status = $1, updated_at = CURRENT_TIMESTAMP WHERE id = $2',
+            [currentState.healthStatus, dbContainer.id]
           );
         }
 
@@ -116,13 +137,15 @@ class ContainerMonitor {
           name: dbContainer.name,
           state: currentState,
           stats: stats,
-          port: dbContainer.port
+          port: dbContainer.port,
+          activeJobs,
+          healthStatus: currentState.healthStatus
         });
 
         // Update cached state
         this.containerStates.set(dbContainer.id, currentState);
 
-        logger.debug(`Container ${dbContainer.name} status: ${currentState.status}`);
+        logger.debug(`Container ${dbContainer.name} status: ${currentState.status}, active jobs: ${activeJobs}`);
       }
     } catch (error) {
       // Container might have been removed
@@ -183,6 +206,21 @@ class ContainerMonitor {
       });
     }
 
+    const gpuStats = Array.isArray(stats.gpu_stats)
+      ? stats.gpu_stats.map((gpu, index) => {
+          const total = gpu.memory_total || gpu.memory_stats?.max_gpu_memory || 0;
+          const used = gpu.memory_used || gpu.memory_stats?.used_gpu_memory || 0;
+          return {
+            index: gpu.index ?? gpu.id ?? index,
+            name: gpu.name || `GPU ${gpu.index ?? index}`,
+            memoryTotal: total,
+            memoryUsed: used,
+            memoryPercent: total > 0 ? (used / total) * 100 : 0,
+            utilization: gpu.utilization_gpu ?? gpu.gpu_utilization ?? gpu.utilization ?? 0
+          };
+        })
+      : [];
+
     return {
       cpu: {
         percent: parseFloat(cpuPercent.toFixed(2)),
@@ -206,8 +244,29 @@ class ContainerMonitor {
         write: blockWrite,
         readMB: parseFloat((blockRead / 1024 / 1024).toFixed(2)),
         writeMB: parseFloat((blockWrite / 1024 / 1024).toFixed(2))
-      }
+      },
+      gpu: gpuStats
     };
+  }
+
+  calculateHealthStatus(stats, activeJobs, maxConcurrentJobs) {
+    if (!stats) {
+      return activeJobs >= (maxConcurrentJobs || 0) && maxConcurrentJobs ? 'at-capacity' : 'unknown';
+    }
+
+    if (maxConcurrentJobs && activeJobs >= maxConcurrentJobs) {
+      return 'at-capacity';
+    }
+
+    if (stats.cpu.percent > 90 || stats.memory.percent > 90) {
+      return 'degraded';
+    }
+
+    if (stats.cpu.percent > 80 || stats.memory.percent > 80) {
+      return 'busy';
+    }
+
+    return 'healthy';
   }
 
   /**
