@@ -10,6 +10,8 @@ RUN apt-get update && apt-get install -y \
     python3-pip \
     git \
     wget \
+    ca-certificates \
+    ffmpeg \
     libgl1-mesa-glx \
     libglib2.0-0 \
     && rm -rf /var/lib/apt/lists/*
@@ -42,6 +44,10 @@ RUN cd /app/custom_nodes && \
     (cd ComfyUI-DyPE && if [ -f requirements.txt ]; then pip3 install --no-cache-dir -r requirements.txt; fi) && \
     git clone https://github.com/kijai/ComfyUI-WanAnimatePreprocess.git && \
     (cd ComfyUI-WanAnimatePreprocess && if [ -f requirements.txt ]; then pip3 install --no-cache-dir -r requirements.txt; fi) && \
+    git clone https://github.com/Lightricks/ComfyUI-LTXVideo.git && \
+    (cd ComfyUI-LTXVideo && if [ -f requirements.txt ]; then pip3 install --no-cache-dir -r requirements.txt; fi) && \
+    git clone https://github.com/crystian/ComfyUI-Crystools.git && \
+    (cd ComfyUI-Crystools && if [ -f requirements.txt ]; then pip3 install --no-cache-dir -r requirements.txt; fi) && \
     git clone https://github.com/rgthree/rgthree-comfy.git && \
     (cd rgthree-comfy && if [ -f requirements.txt ]; then pip3 install --no-cache-dir -r requirements.txt; fi)
 
