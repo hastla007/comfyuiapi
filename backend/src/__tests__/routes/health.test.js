@@ -13,7 +13,9 @@ jest.mock('../../database', () => ({
 }));
 
 jest.mock('../../docker', () => ({
-  listContainers: jest.fn()
+  docker: {
+    listContainers: jest.fn()
+  }
 }));
 
 jest.mock('../../utils/logger', () => ({
@@ -33,7 +35,7 @@ describe('Health Check Endpoints', () => {
   describe('GET /health', () => {
     it('should return healthy status when all services are up', async () => {
       const { pool } = require('../../database');
-      const docker = require('../../docker');
+      const { docker } = require('../../docker');
 
       pool.query.mockResolvedValue({ rows: [{ now: new Date() }] });
       docker.listContainers.mockResolvedValue([
@@ -51,7 +53,7 @@ describe('Health Check Endpoints', () => {
 
     it('should return degraded status when database is down', async () => {
       const { pool } = require('../../database');
-      const docker = require('../../docker');
+      const { docker } = require('../../docker');
 
       pool.query.mockRejectedValue(new Error('Connection failed'));
       docker.listContainers.mockResolvedValue([]);
