@@ -246,6 +246,44 @@ describe('Jobs Routes', () => {
     });
   });
 
+  describe('POST /api/jobs/cancel/bulk', () => {
+    test('should cancel multiple queued jobs and report skipped ones', async () => {
+      pool.query.mockResolvedValue({
+        rows: [
+          { id: 1, status: 'queued' },
+          { id: 2, status: 'processing' },
+          { id: 3, status: 'completed' }
+        ]
+      });
+      jobProcessor.cancelJob.mockResolvedValue(true);
+
+      const response = await request(app)
+        .post('/api/jobs/cancel/bulk')
+        .send({ ids: [1, 2, 3, 99] })
+        .expect(200);
+
+      expect(jobProcessor.cancelJob).toHaveBeenCalledTimes(2);
+      expect(jobProcessor.cancelJob).toHaveBeenCalledWith(1);
+      expect(jobProcessor.cancelJob).toHaveBeenCalledWith(2);
+      expect(response.body.cancelled).toEqual([1, 2]);
+      expect(response.body.skipped.missing).toContain(99);
+      expect(response.body.skipped.notCancellable).toEqual([
+        { id: 3, status: 'completed' }
+      ]);
+    });
+
+    test('should reject when no valid ids provided', async () => {
+      const response = await request(app)
+        .post('/api/jobs/cancel/bulk')
+        .send({ ids: ['bad'] })
+        .expect(400);
+
+      expect(response.body.success).toBe(false);
+      expect(response.body.error).toMatch(/No valid job IDs/);
+      expect(jobProcessor.cancelJob).not.toHaveBeenCalled();
+    });
+  });
+
   describe('POST /api/jobs/:id/retry', () => {
     test('should retry a failed job', async () => {
       pool.query

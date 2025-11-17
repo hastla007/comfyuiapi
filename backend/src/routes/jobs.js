@@ -328,6 +328,62 @@ router.get('/', authenticateApiKey, async (req, res) => {
  * Cancel a job
  * POST /api/jobs/:id/cancel
  */
+router.post('/cancel/bulk', authenticateApiKey, async (req, res) => {
+  try {
+    const ids = Array.isArray(req.body?.ids) ? req.body.ids : [];
+    const jobIds = [...new Set(
+      ids.map(id => parseInt(id, 10)).filter(id => Number.isSafeInteger(id) && id > 0)
+    )];
+
+    if (jobIds.length === 0) {
+      return res.status(400).json({
+        success: false,
+        error: 'No valid job IDs provided'
+      });
+    }
+
+    const lookup = await pool.query(
+      'SELECT id, status FROM jobs WHERE id = ANY($1)',
+      [jobIds]
+    );
+
+    const foundIds = lookup.rows.map(row => row.id);
+    const missing = jobIds.filter(id => !foundIds.includes(id));
+
+    const cancellable = lookup.rows.filter(row => ['queued', 'processing'].includes(row.status));
+    const notCancellable = lookup.rows
+      .filter(row => !['queued', 'processing'].includes(row.status))
+      .map(row => ({ id: row.id, status: row.status }));
+
+    const cancelled = [];
+    const errors = [];
+
+    for (const row of cancellable) {
+      try {
+        const result = await jobProcessor.cancelJob(row.id);
+        if (result !== false) {
+          cancelled.push(row.id);
+        }
+      } catch (error) {
+        errors.push({ id: row.id, message: error.message });
+      }
+    }
+
+    res.json({
+      success: true,
+      cancelled,
+      skipped: {
+        missing,
+        notCancellable
+      },
+      errors
+    });
+  } catch (error) {
+    logger.error('Error bulk cancelling jobs:', error);
+    res.status(500).json({ success: false, error: 'Failed to cancel jobs' });
+  }
+});
+
 router.post('/:id/cancel', authenticateApiKey, async (req, res) => {
   try {
     const { id } = req.params;
