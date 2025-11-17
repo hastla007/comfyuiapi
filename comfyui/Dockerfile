@@ -144,6 +144,8 @@ RUN cd /app/custom_nodes && \
     (cd ComfyUI-WanAnimatePreprocess && if [ -f requirements.txt ]; then pip3 install --no-cache-dir -r requirements.txt; fi) && \
     git clone https://github.com/Lightricks/ComfyUI-LTXVideo.git && \
     (cd ComfyUI-LTXVideo && if [ -f requirements.txt ]; then pip3 install --no-cache-dir -r requirements.txt; fi) && \
+    git clone https://github.com/crystian/ComfyUI-Crystools.git && \
+    (cd ComfyUI-Crystools && if [ -f requirements.txt ]; then pip3 install --no-cache-dir -r requirements.txt; fi) && \
     git clone https://github.com/rgthree/rgthree-comfy.git && \
     (cd rgthree-comfy && if [ -f requirements.txt ]; then python3 -m pip install --no-cache-dir -r requirements.txt; fi)
 
