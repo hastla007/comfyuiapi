@@ -57,18 +57,31 @@ function ContainerList({ containers, workflows, loading, containerStats = {}, on
     if (!stats) return null;
 
     const gpu = stats.gpu?.[0];
+    const memoryPercent = Number.isFinite(stats.memory?.percent)
+      ? stats.memory.percent.toFixed(1)
+      : null;
+    const gpuPercent = Number.isFinite(gpu?.memoryPercent)
+      ? gpu.memoryPercent.toFixed(1)
+      : null;
 
     return (
-      <div className="stats-row">
-        <div className="stat-pill">RAM: {formatBytes(stats.memory?.usage)} / {formatBytes(stats.memory?.limit)} MB</div>
-        {gpu ? (
-          <div className="stat-pill">
-            GPU VRAM: {formatBytes(gpu.memoryUsed)} / {formatBytes(gpu.memoryTotal)} MB ({gpu.utilization ?? 0}% util)
-          </div>
-        ) : (
-          <div className="stat-pill">GPU: N/A</div>
-        )}
-      </div>
+      <>
+        <div className="info-row">
+          <span className="label">RAM Usage:</span>
+          <span className="value">
+            {formatBytes(stats.memory?.usage)} / {formatBytes(stats.memory?.limit)} MB
+            {memoryPercent ? ` (${memoryPercent}%)` : ''}
+          </span>
+        </div>
+        <div className="info-row">
+          <span className="label">GPU VRAM:</span>
+          <span className="value">
+            {gpu
+              ? `${formatBytes(gpu.memoryUsed)} / ${formatBytes(gpu.memoryTotal)} MB${gpuPercent ? ` (${gpuPercent}%)` : ''}`
+              : 'N/A'}
+          </span>
+        </div>
+      </>
     );
   };
 

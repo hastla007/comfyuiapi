@@ -41,6 +41,7 @@ function Layout({ children }) {
   const navItems = [
     { path: '/containers', icon: Container, label: 'Containers' },
     { path: '/jobs', icon: Briefcase, label: 'Jobs' },
+    { path: '/queue', icon: Activity, label: 'Queue' },
     { path: '/files', icon: FolderOpen, label: 'Files' },
     { path: '/playground', icon: FlaskConical, label: 'Playground' },
     {
@@ -59,7 +60,6 @@ function Layout({ children }) {
       icon: BookOpen,
       label: 'API',
       children: [
-        { path: '/queue', label: 'Queue' },
         { path: '/api-docs', label: 'API Docs' },
         { path: '/api-keys', label: 'API Keys' },
       ],
