@@ -68,15 +68,6 @@
   z-index: 1;
 }
 
-
-.nav-group {
-  display: flex;
-  flex-direction: column;
-  gap: 0.35rem;
-  min-width: 160px;
-  position: relative;
-}
-
 .nav-item {
   display: flex;
   align-items: center;
