@@ -18,14 +18,17 @@ describe('Layout Component', () => {
     render(<MockLayout><div>Test</div></MockLayout>);
 
     expect(screen.getByText('Containers')).toBeInTheDocument();
-    expect(screen.getByText('Workflows')).toBeInTheDocument();
-    expect(screen.getByText('Logs')).toBeInTheDocument();
-    expect(screen.getByText('Queue')).toBeInTheDocument();
     expect(screen.getByText('Jobs')).toBeInTheDocument();
     expect(screen.getByText('Files')).toBeInTheDocument();
-    expect(screen.getByText('System Info')).toBeInTheDocument();
+    expect(screen.getByText('System')).toBeInTheDocument();
+    expect(screen.getByText('Overview')).toBeInTheDocument();
+    expect(screen.getByText('Workflows')).toBeInTheDocument();
+    expect(screen.getByText('Logs')).toBeInTheDocument();
     expect(screen.getByText('Settings')).toBeInTheDocument();
+    expect(screen.getByText('API')).toBeInTheDocument();
+    expect(screen.getByText('Queue')).toBeInTheDocument();
     expect(screen.getByText('API Docs')).toBeInTheDocument();
+    expect(screen.getByText('API Keys')).toBeInTheDocument();
   });
 
   it('renders children content', () => {

@@ -6,7 +6,6 @@ import './SettingsPage.css';
 
 function SettingsPage() {
   const [settings, setSettings] = useState({
-    apiKey: '',
     maxConcurrentJobs: 5,
     jobTimeout: 3600,
     enableWebhooks: false,
@@ -79,21 +78,6 @@ function SettingsPage() {
       )}
 
       <form onSubmit={handleSubmit} className="settings-form">
-        <div className="settings-section">
-          <h3>API Configuration</h3>
-          <div className="form-group">
-            <label htmlFor="apiKey">API Key</label>
-            <input
-              id="apiKey"
-              type="password"
-              value={settings.apiKey}
-              onChange={(e) => handleChange('apiKey', e.target.value)}
-              placeholder="Enter API key"
-            />
-            <small>API key for authenticating requests</small>
-          </div>
-        </div>
-
         <div className="settings-section">
           <h3>Job Processing</h3>
           <div className="form-group">
