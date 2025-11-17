@@ -36,6 +36,7 @@ function SystemInfoPage() {
       if (metricsSuccess) {
         const newMetrics = metricsResult.value.data.metrics;
         setMetrics(newMetrics);
+        setError('');
 
         // Update history for charts
         setHistory(prev => {
