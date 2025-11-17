@@ -5,6 +5,7 @@ const websocketService = require('./websocketService');
 const logger = require('../utils/logger');
 const fs = require('fs').promises;
 const path = require('path');
+const { getVolumeBase } = require('../docker');
 
 /**
  * Job Processor
@@ -114,19 +115,22 @@ class JobProcessor {
     logger.info(`Executing job ${job.id} (workflow: ${job.workflow_id})`);
 
     try {
-      // Get workflow
-      const workflow = await this.getWorkflow(job.workflow_id);
+      // Select a container
+      const container = await this.selectContainer(job.container_id, job.model);
+
+      if (!container) {
+        throw new Error('No available containers');
+      }
+
+      // Get workflow (prefer the version on disk for the targeted container)
+      const workflow = await this.getWorkflow(job.workflow_id, container.id);
 
       if (!workflow) {
         throw new Error(`Workflow ${job.workflow_id} not found`);
       }
 
-      // Select a container
-      const container = await this.selectContainer(job.container_id);
-
-      if (!container) {
-        throw new Error('No available containers');
-      }
+      await this.trackJobStarted(job.id, container.id);
+      await this.updateJob(job.id, { container_id: container.id });
 
       // Create ComfyUI client
       const client = createClient(container.port);
@@ -249,7 +253,22 @@ class JobProcessor {
   /**
    * Get workflow from database
    */
-  async getWorkflow(workflowId) {
+  async getWorkflow(workflowId, containerInstanceId) {
+    if (containerInstanceId) {
+      const workflowsBase = path.resolve(getVolumeBase(), 'workflows');
+      const workflowFile = path.join(workflowsBase, `instance-${containerInstanceId}`, 'workflow.json');
+
+      try {
+        const contents = await fs.readFile(workflowFile, 'utf-8');
+        const parsed = JSON.parse(contents);
+        return { id: workflowId, workflow_json: parsed };
+      } catch (fileError) {
+        if (fileError.code !== 'ENOENT') {
+          logger.warn(`Unable to load workflow from ${workflowFile}:`, fileError.message);
+        }
+      }
+    }
+
     const result = await pool.query(
       'SELECT * FROM workflows WHERE id = $1',
       [workflowId]
@@ -260,7 +279,7 @@ class JobProcessor {
   /**
    * Select an available container
    */
-  async selectContainer(preferredContainerId = null) {
+  async selectContainer(preferredContainerId = null, model = null) {
     // If a specific container is requested, use it
     if (preferredContainerId) {
       const result = await pool.query(
@@ -270,15 +289,73 @@ class JobProcessor {
       return result.rows[0] || null;
     }
 
-    // Otherwise, find any running container
-    const result = await pool.query(
-      `SELECT * FROM containers
-       WHERE status = 'running'
-       ORDER BY id ASC
-       LIMIT 1`
-    );
+    const loadQuery = `
+      WITH container_loads AS (
+        SELECT
+          c.id,
+          c.name,
+          c.port,
+          c.status,
+          c.max_concurrent_jobs,
+          c.health_status,
+          c.last_activity_at,
+          COUNT(CASE WHEN caj.status = 'processing' THEN 1 END) AS active_jobs
+        FROM containers c
+        LEFT JOIN container_active_jobs caj ON c.id = caj.container_id
+        WHERE c.status = 'running'
+        GROUP BY c.id, c.name, c.port, c.status, c.max_concurrent_jobs, c.health_status, c.last_activity_at
+      )
+      SELECT *
+      FROM container_loads
+      WHERE health_status = 'healthy'
+        AND (max_concurrent_jobs IS NULL OR active_jobs < max_concurrent_jobs)
+      ORDER BY active_jobs ASC, last_activity_at DESC NULLS LAST, id ASC
+      LIMIT 1
+    `;
 
-    return result.rows[0] || null;
+    const result = await pool.query(loadQuery);
+
+    if (result.rows.length === 0) {
+      logger.warn('No healthy containers available with capacity');
+      const fallback = await pool.query(
+        `SELECT * FROM containers 
+         WHERE status = 'running' 
+         ORDER BY id ASC LIMIT 1`
+      );
+      return fallback.rows[0] || null;
+    }
+
+    return result.rows[0];
+  }
+
+  async trackJobStarted(jobId, containerId) {
+    try {
+      await pool.query(
+        `INSERT INTO container_active_jobs (container_id, job_id, status)
+         VALUES ($1, $2, 'processing')
+         ON CONFLICT (container_id, job_id) DO UPDATE SET status = 'processing', completed_at = NULL`,
+        [containerId, jobId]
+      );
+      await pool.query(
+        'UPDATE containers SET last_activity_at = CURRENT_TIMESTAMP WHERE id = $1',
+        [containerId]
+      );
+    } catch (error) {
+      logger.error(`Failed to track job ${jobId} start:`, error);
+    }
+  }
+
+  async trackJobCompleted(jobId) {
+    try {
+      await pool.query(
+        `UPDATE container_active_jobs 
+         SET status = 'completed', completed_at = CURRENT_TIMESTAMP
+         WHERE job_id = $1`,
+        [jobId]
+      );
+    } catch (error) {
+      logger.error(`Failed to track job ${jobId} completion:`, error);
+    }
   }
 
   /**
@@ -329,6 +406,7 @@ class JobProcessor {
    * Mark job as completed
    */
   async completeJob(jobId, outputUrl) {
+    await this.trackJobCompleted(jobId);
     const result = await pool.query(`
       UPDATE jobs
       SET status = 'completed',
@@ -372,6 +450,7 @@ class JobProcessor {
    * Handle job error
    */
   async handleJobError(jobId, errorMessage) {
+    await this.trackJobCompleted(jobId);
     const result = await pool.query(`
       UPDATE jobs
       SET status = 'failed',
@@ -432,6 +511,8 @@ class JobProcessor {
       logger.info(`Cannot cancel job ${jobId} - already in final state`);
       return false;
     }
+
+    await this.trackJobCompleted(jobId);
 
     // Only cancel in ComfyUI if it's currently being processed
     if (processingInfo) {

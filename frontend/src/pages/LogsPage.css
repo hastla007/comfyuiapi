@@ -1,7 +1,7 @@
 .logs-page {
   display: flex;
   flex-direction: column;
-  height: calc(100vh - 200px);
+  height: calc(100vh - 130px);
 }
 
 .logs-header {
@@ -56,6 +56,14 @@
   user-select: none;
 }
 
+.interval-select {
+  padding: 0.45rem 0.75rem;
+  border: 1px solid #ddd;
+  border-radius: 4px;
+  background: white;
+  cursor: pointer;
+}
+
 .btn-icon {
   padding: 0.5rem 0.75rem;
   border: 1px solid #ddd;
@@ -84,6 +92,7 @@
 
 .logs-container {
   flex: 1;
+  min-height: 520px;
   background: #1e1e1e;
   border-radius: 4px;
   overflow: hidden;

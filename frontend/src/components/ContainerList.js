@@ -1,7 +1,7 @@
 import React, { useState } from 'react';
 import './ContainerList.css';
 
-function ContainerList({ containers, workflows, loading, onStart, onStop, onRestart, onDelete, onAssignWorkflow }) {
+function ContainerList({ containers, workflows, loading, containerStats = {}, onStart, onStop, onRestart, onDelete, onAssignWorkflow }) {
   const [assigningWorkflow, setAssigningWorkflow] = useState(null);
   const [selectedWorkflow, setSelectedWorkflow] = useState('');
   if (loading) {
@@ -16,6 +16,11 @@ function ContainerList({ containers, workflows, loading, onStart, onStop, onRest
       </div>
     );
   }
+
+  const formatId = (value, length = 12) => {
+    if (value === undefined || value === null) return 'N/A';
+    return String(value).substring(0, length);
+  };
 
   const getStatusColor = (status) => {
     switch (status?.toLowerCase()) {
@@ -40,6 +45,31 @@ function ContainerList({ containers, workflows, loading, onStart, onStop, onRest
     if (!workflowId) return 'None';
     const workflow = workflows.find(w => w.id === workflowId);
     return workflow ? workflow.name : `#${workflowId}`;
+  };
+
+  const formatBytes = (bytes) => {
+    if (!bytes || bytes < 0) return '0.0';
+    return (bytes / (1024 * 1024)).toFixed(1);
+  };
+
+  const renderStats = (container) => {
+    const stats = containerStats[container.id];
+    if (!stats) return null;
+
+    const gpu = stats.gpu?.[0];
+
+    return (
+      <div className="stats-row">
+        <div className="stat-pill">RAM: {formatBytes(stats.memory?.usage)} / {formatBytes(stats.memory?.limit)} MB</div>
+        {gpu ? (
+          <div className="stat-pill">
+            GPU VRAM: {formatBytes(gpu.memoryUsed)} / {formatBytes(gpu.memoryTotal)} MB ({gpu.utilization ?? 0}% util)
+          </div>
+        ) : (
+          <div className="stat-pill">GPU: N/A</div>
+        )}
+      </div>
+    );
   };
 
   const handleOpenAssignModal = (container) => {
@@ -88,12 +118,13 @@ function ContainerList({ containers, workflows, loading, onStart, onStop, onRest
               </div>
               <div className="info-row">
                 <span className="label">Container ID:</span>
-                <span className="value">{container.id?.substring(0, 12)}</span>
+                <span className="value">{formatId(container.id)}</span>
               </div>
               <div className="info-row">
                 <span className="label">Workflow:</span>
                 <span className="value">{getWorkflowName(container.workflow_id)}</span>
               </div>
+              {renderStats(container)}
             </div>
 
             <div className="container-actions">

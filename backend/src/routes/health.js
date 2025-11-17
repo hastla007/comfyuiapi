@@ -1,17 +1,21 @@
 const express = require('express');
 const router = express.Router();
 const { pool } = require('../database');
-const docker = require('../docker');
+const { docker } = require('../docker');
 const { register, getSystemMetrics } = require('../middleware/metrics');
+const { getGpuInfo } = require('../utils/gpuInfo');
+const { getContainer } = require('../docker');
 const { requireAdmin } = require('../middleware/auth');
 const logger = require('../utils/logger');
 const os = require('os');
 const fs = require('fs').promises;
 const path = require('path');
+const { version } = require('../../package.json');
 
 // Main health check endpoint
 router.get('/', async (req, res) => {
   try {
+    const gpus = await getGpuInfo();
     const health = {
       status: 'healthy',
       timestamp: new Date().toISOString(),
@@ -19,7 +23,15 @@ router.get('/', async (req, res) => {
       database: await checkDatabase(),
       docker: await checkDocker(),
       memory: getMemoryUsage(),
-      version: '1.0.0'
+      version,
+      gpus,
+      system: {
+        platform: os.platform(),
+        arch: os.arch(),
+        nodeVersion: process.version,
+        hostname: os.hostname(),
+        uptime: os.uptime()
+      }
     };
 
     // Set overall status based on component health
@@ -47,6 +59,8 @@ router.get('/detailed', async (req, res) => {
       checkDocker()
     ]);
 
+    const gpus = await getGpuInfo();
+
     res.json({
       success: true,
       timestamp: new Date().toISOString(),
@@ -56,7 +70,8 @@ router.get('/detailed', async (req, res) => {
         docker: dockerHealth,
         filesystem: await checkFilesystem(),
         memory: getMemoryUsage(),
-        cpu: getCPUUsage()
+        cpu: getCPUUsage(),
+        gpus
       },
       system: {
         platform: os.platform(),
@@ -90,14 +105,90 @@ router.get('/metrics', async (req, res) => {
 router.get('/metrics/custom', async (req, res) => {
   try {
     const metrics = getSystemMetrics();
+    const gpus = await getGpuInfo();
     res.json({
       success: true,
-      metrics
+      metrics,
+      gpus
     });
   } catch (error) {
     logger.error('Custom metrics error:', error);
     res.status(500).json({ success: false, error: error.message });
   }
+});
+
+// GPU info endpoint for frontend header
+router.get('/gpus', async (req, res) => {
+  try {
+    const gpus = await getGpuInfo();
+    res.json({ success: true, gpus });
+  } catch (error) {
+    logger.error('GPU info endpoint error:', error);
+    res.status(500).json({ success: false, error: 'Failed to retrieve GPU info' });
+  }
+});
+
+// Unload all models from running containers (best-effort)
+router.post('/unload-models', async (req, res) => {
+  const before = await getGpuInfo();
+  const results = [];
+
+  try {
+    const running = await pool.query(
+      "SELECT id, container_id, name FROM containers WHERE status = 'running'"
+    );
+
+    for (const container of running.rows) {
+      try {
+        const dockerContainer = getContainer(container.container_id);
+        const exec = await dockerContainer.exec({
+          Cmd: [
+            'python3',
+            '-c',
+            "import comfy.model_management as mm; mm.unload_all_models(); print('unloaded')"
+          ],
+          AttachStdout: true,
+          AttachStderr: true
+        });
+
+        const stream = await exec.start({ hijack: true, stdin: false });
+        const output = await new Promise(resolve => {
+          let buffer = '';
+          stream.on('data', data => { buffer += data.toString(); });
+          stream.on('end', () => resolve(buffer.trim()));
+        });
+
+        results.push({
+          containerId: container.container_id,
+          name: container.name,
+          status: 'ok',
+          output
+        });
+      } catch (error) {
+        logger.error(`Unload failed for container ${container.container_id}:`, error);
+        results.push({
+          containerId: container.container_id,
+          name: container.name,
+          status: 'error',
+          error: error.message
+        });
+      }
+    }
+  } catch (error) {
+    logger.error('Error unloading models:', error);
+    results.push({ status: 'error', error: error.message });
+  }
+
+  const after = await getGpuInfo();
+
+  res.json({
+    success: true,
+    results,
+    gpus: {
+      before,
+      after
+    }
+  });
 });
 
 // Logs endpoint (last N logs) - Public endpoint for read access
