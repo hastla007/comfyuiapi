@@ -13,6 +13,7 @@ import SettingsPage from './pages/SettingsPage';
 import ApiDocsPage from './pages/ApiDocsPage';
 import ApiKeysPage from './pages/ApiKeysPage';
 import ErrorBoundary from './components/ErrorBoundary';
+import PlaygroundPage from './pages/PlaygroundPage';
 
 function App() {
   return (
@@ -31,6 +32,7 @@ function App() {
             <Route path="/settings" element={<SettingsPage />} />
             <Route path="/api-keys" element={<ApiKeysPage />} />
             <Route path="/api-docs" element={<ApiDocsPage />} />
+            <Route path="/playground" element={<PlaygroundPage />} />
           </Routes>
         </Layout>
       </ErrorBoundary>

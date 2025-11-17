@@ -16,6 +16,43 @@ const {
   getContainerStats
 } = require('../docker');
 
+function summarizeStats(rawStats) {
+  if (!rawStats) return null;
+
+  const cpuDelta = rawStats.cpu_stats.cpu_usage.total_usage - (rawStats.precpu_stats.cpu_usage?.total_usage || 0);
+  const systemDelta = rawStats.cpu_stats.system_cpu_usage - (rawStats.precpu_stats.system_cpu_usage || 0);
+  const cpuPercent = systemDelta > 0 ? (cpuDelta / systemDelta) * rawStats.cpu_stats.online_cpus * 100 : 0;
+
+  const memoryUsage = rawStats.memory_stats.usage || 0;
+  const memoryLimit = rawStats.memory_stats.limit || 0;
+  const memoryPercent = memoryLimit > 0 ? (memoryUsage / memoryLimit) * 100 : 0;
+
+  const gpuStats = Array.isArray(rawStats.gpu_stats)
+    ? rawStats.gpu_stats.map((gpu, index) => {
+        const total = gpu.memory_total || gpu.memory_stats?.max_gpu_memory || 0;
+        const used = gpu.memory_used || gpu.memory_stats?.used_gpu_memory || 0;
+        return {
+          index: gpu.index ?? gpu.id ?? index,
+          name: gpu.name || `GPU ${gpu.index ?? index}`,
+          memoryTotal: total,
+          memoryUsed: used,
+          memoryPercent: total > 0 ? (used / total) * 100 : 0,
+          utilization: gpu.utilization_gpu ?? gpu.gpu_utilization ?? gpu.utilization ?? 0
+        };
+      })
+    : [];
+
+  return {
+    cpu: parseFloat(cpuPercent.toFixed(2)),
+    memory: {
+      usage: memoryUsage,
+      limit: memoryLimit,
+      percent: parseFloat(memoryPercent.toFixed(2))
+    },
+    gpu: gpuStats
+  };
+}
+
 /**
  * GET /api/containers - Get all containers
  * Public endpoint - no authentication required for read access
@@ -430,6 +467,7 @@ router.get('/:id/stats', async (req, res) => {
   try {
     const { id } = req.params;
     const stats = await getContainerStats(id);
+    const summary = summarizeStats(stats);
 
     const loadResult = await pool.query(
       `SELECT 
@@ -449,6 +487,7 @@ router.get('/:id/stats', async (req, res) => {
     res.json({
       success: true,
       stats,
+      summary,
       load: {
         active_jobs: activeJobs,
         max_concurrent_jobs: loadInfo.max_concurrent_jobs,

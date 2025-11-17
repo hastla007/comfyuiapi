@@ -206,6 +206,21 @@ class ContainerMonitor {
       });
     }
 
+    const gpuStats = Array.isArray(stats.gpu_stats)
+      ? stats.gpu_stats.map((gpu, index) => {
+          const total = gpu.memory_total || gpu.memory_stats?.max_gpu_memory || 0;
+          const used = gpu.memory_used || gpu.memory_stats?.used_gpu_memory || 0;
+          return {
+            index: gpu.index ?? gpu.id ?? index,
+            name: gpu.name || `GPU ${gpu.index ?? index}`,
+            memoryTotal: total,
+            memoryUsed: used,
+            memoryPercent: total > 0 ? (used / total) * 100 : 0,
+            utilization: gpu.utilization_gpu ?? gpu.gpu_utilization ?? gpu.utilization ?? 0
+          };
+        })
+      : [];
+
     return {
       cpu: {
         percent: parseFloat(cpuPercent.toFixed(2)),
@@ -229,7 +244,8 @@ class ContainerMonitor {
         write: blockWrite,
         readMB: parseFloat((blockRead / 1024 / 1024).toFixed(2)),
         writeMB: parseFloat((blockWrite / 1024 / 1024).toFixed(2))
-      }
+      },
+      gpu: gpuStats
     };
   }
 

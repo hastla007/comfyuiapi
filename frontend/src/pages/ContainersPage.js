@@ -10,6 +10,7 @@ function ContainersPage() {
   const [containers, setContainers] = useState([]);
   const [workflows, setWorkflows] = useState([]);
   const [loading, setLoading] = useState(true);
+  const [containerStats, setContainerStats] = useState({});
 
   useEffect(() => {
     fetchContainers();
@@ -26,6 +27,7 @@ function ContainersPage() {
       const response = await axios.get(`${API_URL}/containers`);
       if (response.data.success) {
         setContainers(response.data.containers);
+        await fetchContainerStats(response.data.containers);
       }
     } catch (error) {
       console.error('Error fetching containers:', error);
@@ -42,6 +44,32 @@ function ContainersPage() {
       }
     } catch (error) {
       console.error('Error fetching workflows:', error);
+    }
+  };
+
+  const fetchContainerStats = async (containerList) => {
+    try {
+      const statsPairs = await Promise.all(
+        (containerList || []).map(async (container) => {
+          try {
+            const response = await axios.get(`${API_URL}/containers/${container.id}/stats`);
+            if (response.data.success) {
+              return [container.id, response.data.summary];
+            }
+          } catch (error) {
+            return [container.id, null];
+          }
+          return [container.id, null];
+        })
+      );
+
+      const nextStats = {};
+      statsPairs.forEach(([id, summary]) => {
+        nextStats[id] = summary;
+      });
+      setContainerStats(nextStats);
+    } catch (error) {
+      console.error('Failed to fetch container stats', error);
     }
   };
 
@@ -124,6 +152,7 @@ function ContainersPage() {
         containers={containers}
         workflows={workflows}
         loading={loading}
+        containerStats={containerStats}
         onStart={handleStartContainer}
         onStop={handleStopContainer}
         onRestart={handleRestartContainer}

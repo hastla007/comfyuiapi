@@ -9,6 +9,7 @@ import { extractErrorMessage } from '../utils/errorMessage';
 function SystemInfoPage() {
   const [metrics, setMetrics] = useState({});
   const [health, setHealth] = useState({});
+  const [gpus, setGpus] = useState([]);
   const [history, setHistory] = useState([]);
   const [loading, setLoading] = useState(true);
   const [autoRefresh, setAutoRefresh] = useState(true);
@@ -36,7 +37,7 @@ function SystemInfoPage() {
       if (metricsSuccess) {
         const newMetrics = metricsResult.value.data.metrics;
         setMetrics(newMetrics);
-        setError('');
+        setGpus(metricsResult.value.data.gpus || []);
 
         // Update history for charts
         setHistory(prev => {
@@ -62,6 +63,9 @@ function SystemInfoPage() {
       const healthData = healthFulfilled ? healthResult.value?.data : null;
       if (healthData?.success || healthData?.status) {
         setHealth(healthData);
+        if (healthData.gpus?.length) {
+          setGpus(healthData.gpus);
+        }
       } else if (healthResult) {
         const healthError = healthResult.status === 'rejected'
           ? healthResult.reason
@@ -117,6 +121,11 @@ function SystemInfoPage() {
       return 'N/A';
     }
     return value.toFixed(1);
+  };
+
+  const formatGb = (bytes) => {
+    if (!bytes || bytes < 0) return '0.0';
+    return (bytes / (1024 * 1024 * 1024)).toFixed(1);
   };
 
   const formatConnections = (connections) => {
@@ -260,6 +269,21 @@ function SystemInfoPage() {
               </div>
             </div>
           </div>
+
+          {gpus.length > 0 && (
+            <div className="gpus-section">
+              <h3>GPU Utilization</h3>
+              <div className="gpus-grid">
+                {gpus.map(gpu => (
+                  <div key={gpu.index} className="gpu-card">
+                    <div className="gpu-title">{gpu.name || `GPU ${gpu.index}`}</div>
+                    <div className="gpu-stat">VRAM: {formatGb(gpu.memory?.used)} / {formatGb(gpu.memory?.total)} GB</div>
+                    <div className="gpu-stat">Utilization: {gpu.utilization ?? 0}%</div>
+                  </div>
+                ))}
+              </div>
+            </div>
+          )}
 
           {/* Charts */}
           <div className="charts-section">

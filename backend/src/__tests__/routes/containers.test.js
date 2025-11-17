@@ -244,7 +244,24 @@ describe('Containers Routes', () => {
 
   describe('GET /api/containers/:id/stats', () => {
     test('should get container stats', async () => {
-      const mockStats = { cpu: 25, memory: 512 };
+      const mockStats = {
+        cpu_stats: {
+          cpu_usage: { total_usage: 200 },
+          system_cpu_usage: 1000,
+          online_cpus: 2
+        },
+        precpu_stats: {
+          cpu_usage: { total_usage: 100 },
+          system_cpu_usage: 800
+        },
+        memory_stats: {
+          usage: 512,
+          limit: 1024
+        },
+        gpu_stats: [
+          { index: 0, name: 'GPU 0', memory_total: 2048, memory_used: 512, utilization_gpu: 50 }
+        ]
+      };
       docker.getContainerStats.mockResolvedValue(mockStats);
       pool.query.mockResolvedValue({ rows: [{ max_concurrent_jobs: 3, active_jobs: 1 }] });
 
@@ -254,6 +271,7 @@ describe('Containers Routes', () => {
 
       expect(response.body.success).toBe(true);
       expect(response.body.stats).toEqual(mockStats);
+      expect(response.body.summary.gpu[0].memoryUsed).toBe(512);
       expect(response.body.load.active_jobs).toBe(1);
       expect(response.body.load.max_concurrent_jobs).toBe(3);
       expect(response.body.load.load_percent).toBeCloseTo((1 / 3) * 100);

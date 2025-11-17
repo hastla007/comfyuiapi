@@ -18,6 +18,10 @@ jest.mock('../../docker', () => ({
   }
 }));
 
+jest.mock('../../utils/gpuInfo', () => ({
+  getGpuInfo: jest.fn().mockResolvedValue([])
+}));
+
 jest.mock('../../utils/logger', () => ({
   info: jest.fn(),
   error: jest.fn(),
