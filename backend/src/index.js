@@ -2,7 +2,7 @@ const express = require('express');
 const http = require('http');
 const cors = require('cors');
 const bodyParser = require('body-parser');
-const rateLimit = require('express-rate-limit');
+const { apiLimiter, jobLimiter } = require('./middleware/limits');
 const helmet = require('helmet');
 const swaggerUi = require('swagger-ui-express');
 const containerRoutes = require('./routes/containers');
@@ -24,6 +24,8 @@ const containerPoolsRoutes = require('./routes/containerPools');
 const storageRoutes = require('./routes/storage');
 const gpuRoutes = require('./routes/gpu');
 const notificationsRoutes = require('./routes/notifications');
+const modelsRoutes = require('./routes/models');
+const docsRoutes = require('./routes/docs');
 const { initDatabase } = require('./database');
 const { testDockerConnection, ensureNetwork } = require('./docker');
 const { scanAndImportWorkflows } = require('./services/workflowScanner');
@@ -61,11 +63,10 @@ app.use(helmet({
 
 // Middleware
 // Configure CORS for security
-const corsOptions = {
-  origin: process.env.CORS_ORIGIN || 'http://localhost:8080',
-  credentials: true
-};
-app.use(cors(corsOptions));
+const { corsMiddleware, getAllowedOrigins, buildSocketCorsOptions } = require('./utils/cors');
+const allowedOrigins = getAllowedOrigins();
+logger.info('CORS allowed origins', { origins: allowedOrigins });
+app.use(corsMiddleware);
 app.use(bodyParser.json({ limit: '10mb' }));
 app.use(bodyParser.urlencoded({ extended: true, limit: '10mb' }));
 
@@ -89,25 +90,9 @@ app.use((req, res, next) => {
   next();
 });
 
-// Rate limiting
-const limiter = rateLimit({
-  windowMs: 15 * 60 * 1000, // 15 minutes
-  max: 100, // Limit each IP to 100 requests per windowMs
-  message: 'Too many requests from this IP, please try again later.',
-  standardHeaders: true,
-  legacyHeaders: false,
-});
-
-// Apply rate limiting to API routes
-app.use('/api/', limiter);
-
-// Stricter rate limiting for job creation only (not GET requests)
-const jobLimiter = rateLimit({
-  windowMs: 60 * 1000, // 1 minute
-  max: 10, // Limit each IP to 10 job creations per minute
-  message: 'Too many jobs created, please try again later.',
-  skip: (req) => req.method === 'GET' // Skip rate limiting for GET requests (status checks)
-});
+// Apply rate limiting to API routes (GET requests are skipped to avoid throttling
+// dashboards and health checks that poll frequently)
+app.use('/api/', apiLimiter);
 
 app.use('/api/jobs', jobLimiter);
 
@@ -152,6 +137,12 @@ app.use('/api/storage', storageRoutes);
 // GPU Management
 app.use('/api/gpu', gpuRoutes);
 
+// Models listing
+app.use('/api/models', modelsRoutes);
+
+// Documentation
+app.use('/api/documentation', docsRoutes);
+
 // Admin API Routes
 app.use('/api/admin/api-keys', apiKeysRoutes);
 app.use('/api/admin/users', usersRoutes);
@@ -184,14 +175,15 @@ app.use((err, req, res, next) => {
     method: req.method
   });
 
-  // Don't leak error details in production
+  // Prefer explicit messages while still withholding stack traces in production
   const isDevelopment = process.env.NODE_ENV !== 'production';
+  const safeMessage = err.publicMessage || err.message || 'An unexpected error occurred';
 
   res.status(err.status || 500).json({
     success: false,
     error: {
       code: err.code || 'internal_error',
-      message: isDevelopment ? err.message : 'An unexpected error occurred',
+      message: safeMessage,
       ...(isDevelopment && { stack: err.stack }),
       requestId: req.id
     }
@@ -238,7 +230,7 @@ async function start() {
     logger.info('Scheduler started');
 
     // Initialize WebSocket server
-    websocketService.initialize(server, corsOptions);
+    websocketService.initialize(server, buildSocketCorsOptions());
     logger.info('WebSocket server initialized');
 
     // Start container monitor

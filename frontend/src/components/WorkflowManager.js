@@ -2,6 +2,7 @@ import React, { useState } from 'react';
 import axios from 'axios';
 import './WorkflowManager.css';
 import { API_URL } from '../config';
+import extractErrorMessage from '../utils/errorMessage';
 
 function WorkflowManager({ workflows, onUpdate }) {
   const [showForm, setShowForm] = useState(false);
@@ -93,7 +94,7 @@ function WorkflowManager({ workflows, onUpdate }) {
         onUpdate(); // Refresh the workflow list
       }
     } catch (err) {
-      setError(err.response?.data?.error || 'Failed to create workflow');
+      setError(extractErrorMessage(err, 'Failed to create workflow'));
     } finally {
       setLoading(false);
     }
@@ -110,7 +111,7 @@ function WorkflowManager({ workflows, onUpdate }) {
         onUpdate(); // Refresh the workflow list
       }
     } catch (err) {
-      alert(err.response?.data?.error || 'Failed to delete workflow');
+      alert(extractErrorMessage(err, 'Failed to delete workflow'));
     }
   };
 

@@ -29,7 +29,7 @@ describe('Containers Routes', () => {
         { Id: 'abc123', Names: ['/container1'], State: 'running', Ports: [], Created: Date.now() }
       ];
       const mockDbContainers = {
-        rows: [{ container_id: 'abc123', name: 'container1', port: 8188 }]
+        rows: [{ id: 42, container_id: 'abc123', name: 'container1', port: 8188 }]
       };
 
       docker.getAllContainers.mockResolvedValue(mockDockerContainers);
@@ -42,6 +42,10 @@ describe('Containers Routes', () => {
       expect(response.body.success).toBe(true);
       expect(response.body.containers).toHaveLength(1);
       expect(response.body.containers[0].name).toBe('container1');
+      expect(response.body.containers[0].id).toBe('abc123');
+      expect(response.body.containers[0].dockerId).toBe('abc123');
+      expect(response.body.containers[0].dbId).toBe(42);
+      expect(response.body.containers[0].container_id).toBe('abc123');
     });
 
     test('should handle Docker errors', async () => {
@@ -240,8 +244,26 @@ describe('Containers Routes', () => {
 
   describe('GET /api/containers/:id/stats', () => {
     test('should get container stats', async () => {
-      const mockStats = { cpu: 25, memory: 512 };
+      const mockStats = {
+        cpu_stats: {
+          cpu_usage: { total_usage: 200 },
+          system_cpu_usage: 1000,
+          online_cpus: 2
+        },
+        precpu_stats: {
+          cpu_usage: { total_usage: 100 },
+          system_cpu_usage: 800
+        },
+        memory_stats: {
+          usage: 512,
+          limit: 1024
+        },
+        gpu_stats: [
+          { index: 0, name: 'GPU 0', memory_total: 2048, memory_used: 512, utilization_gpu: 50 }
+        ]
+      };
       docker.getContainerStats.mockResolvedValue(mockStats);
+      pool.query.mockResolvedValue({ rows: [{ max_concurrent_jobs: 3, active_jobs: 1 }] });
 
       const response = await request(app)
         .get('/api/containers/abc123/stats')
@@ -249,6 +271,28 @@ describe('Containers Routes', () => {
 
       expect(response.body.success).toBe(true);
       expect(response.body.stats).toEqual(mockStats);
+      expect(response.body.summary.gpu[0].memoryUsed).toBe(512);
+      expect(response.body.load.active_jobs).toBe(1);
+      expect(response.body.load.max_concurrent_jobs).toBe(3);
+      expect(response.body.load.load_percent).toBeCloseTo((1 / 3) * 100);
+    });
+  });
+
+  describe('GET /api/containers/load-status/:id', () => {
+    test('returns container load snapshot', async () => {
+      pool.query.mockResolvedValue({ rows: [{ id: 1, active_job_count: 2, load_percent: 50 }] });
+
+      const response = await request(app)
+        .get('/api/containers/load-status/1')
+        .expect(200);
+
+      expect(pool.query).toHaveBeenCalledWith(
+        `SELECT * FROM container_load_status
+       WHERE ($1::int IS NOT NULL AND id = $1::int)
+         OR id = (SELECT id FROM containers WHERE container_id = $2)` ,
+        [1, '1']
+      );
+      expect(response.body.data.active_job_count).toBe(2);
     });
   });
 });

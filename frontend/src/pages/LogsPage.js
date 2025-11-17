@@ -9,6 +9,7 @@ function LogsPage() {
   const [filteredLogs, setFilteredLogs] = useState([]);
   const [loading, setLoading] = useState(true);
   const [autoRefresh, setAutoRefresh] = useState(true);
+  const [refreshInterval, setRefreshInterval] = useState(3000);
   const [searchTerm, setSearchTerm] = useState('');
   const [levelFilter, setLevelFilter] = useState('all');
   const logsEndRef = useRef(null);
@@ -17,10 +18,10 @@ function LogsPage() {
     fetchLogs();
     let interval;
     if (autoRefresh) {
-      interval = setInterval(fetchLogs, 3000);
+      interval = setInterval(fetchLogs, refreshInterval);
     }
     return () => clearInterval(interval);
-  }, [autoRefresh]);
+  }, [autoRefresh, refreshInterval]);
 
   useEffect(() => {
     filterLogs();
@@ -132,6 +133,18 @@ function LogsPage() {
             />
             Auto-refresh
           </label>
+
+          <select
+            value={refreshInterval}
+            onChange={(e) => setRefreshInterval(Number(e.target.value))}
+            className="interval-select"
+            aria-label="Refresh interval"
+          >
+            <option value={2000}>2s</option>
+            <option value={3000}>3s</option>
+            <option value={5000}>5s</option>
+            <option value={10000}>10s</option>
+          </select>
 
           <button onClick={fetchLogs} className="btn-icon" title="Refresh">
             <RefreshCw size={18} />
