@@ -2,7 +2,7 @@ const express = require('express');
 const http = require('http');
 const cors = require('cors');
 const bodyParser = require('body-parser');
-const rateLimit = require('express-rate-limit');
+const { apiLimiter, jobLimiter } = require('./middleware/limits');
 const helmet = require('helmet');
 const swaggerUi = require('swagger-ui-express');
 const containerRoutes = require('./routes/containers');
@@ -88,25 +88,9 @@ app.use((req, res, next) => {
   next();
 });
 
-// Rate limiting
-const limiter = rateLimit({
-  windowMs: 15 * 60 * 1000, // 15 minutes
-  max: 100, // Limit each IP to 100 requests per windowMs
-  message: 'Too many requests from this IP, please try again later.',
-  standardHeaders: true,
-  legacyHeaders: false,
-});
-
-// Apply rate limiting to API routes
-app.use('/api/', limiter);
-
-// Stricter rate limiting for job creation only (not GET requests)
-const jobLimiter = rateLimit({
-  windowMs: 60 * 1000, // 1 minute
-  max: 10, // Limit each IP to 10 job creations per minute
-  message: 'Too many jobs created, please try again later.',
-  skip: (req) => req.method === 'GET' // Skip rate limiting for GET requests (status checks)
-});
+// Apply rate limiting to API routes (GET requests are skipped to avoid throttling
+// dashboards and health checks that poll frequently)
+app.use('/api/', apiLimiter);
 
 app.use('/api/jobs', jobLimiter);
 
