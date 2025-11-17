@@ -12,6 +12,12 @@ function getVolumeBase() {
   return path.resolve(__dirname, '..', '..');
 }
 
+const volumeBase = process.env.VOLUME_BASE || process.env.COMPOSE_PROJECT_DIR || '/app';
+
+function getVolumeBase() {
+  return volumeBase;
+}
+
 // Use DOCKER_HOST environment variable if available, otherwise default to unix socket
 let dockerConfig;
 
