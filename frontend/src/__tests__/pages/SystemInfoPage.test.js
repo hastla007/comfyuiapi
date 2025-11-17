@@ -42,7 +42,7 @@ const buildHealthResponse = (overrides = {}) => ({
   data: {
     success: true,
     status: 'healthy',
-    database: { status: 'healthy' },
+    database: { status: 'healthy', connections: { total: 5, idle: 2, waiting: 1 } },
     docker: { status: 'healthy' },
     ...overrides
   }
@@ -72,6 +72,7 @@ describe('SystemInfoPage', () => {
     expect(screen.getByText('Service Health')).toBeInTheDocument();
     expect(screen.getByText(/CPU/i)).toBeInTheDocument();
     expect(screen.getByText(/15.0%/)).toBeInTheDocument();
+    expect(screen.getByText(/5 \(idle 2, waiting 1\)/)).toBeInTheDocument();
   });
 
   it('shows partial errors while keeping available data', async () => {

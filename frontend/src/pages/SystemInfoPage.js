@@ -119,6 +119,21 @@ function SystemInfoPage() {
     return value.toFixed(1);
   };
 
+  const formatConnections = (connections) => {
+    if (connections === null || connections === undefined) {
+      return '0';
+    }
+
+    if (typeof connections === 'object') {
+      const total = connections.total ?? 0;
+      const idle = connections.idle ?? 0;
+      const waiting = connections.waiting ?? 0;
+      return `${total} (idle ${idle}, waiting ${waiting})`;
+    }
+
+    return String(connections);
+  };
+
   return (
     <div className="system-info-page">
       <div className="system-header">
@@ -291,7 +306,7 @@ function SystemInfoPage() {
               </div>
               <div className="info-item">
                 <span className="info-label">Database Connections:</span>
-                <span className="info-value">{health.database?.connections || 0}</span>
+                <span className="info-value">{formatConnections(health.database?.connections)}</span>
               </div>
               <div className="info-item">
                 <span className="info-label">API Version:</span>

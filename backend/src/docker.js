@@ -83,7 +83,7 @@ async function getAllContainers() {
 /**
  * Get container by ID
  */
-async function getContainer(containerId) {
+function getContainer(containerId) {
   return docker.getContainer(containerId);
 }
 
