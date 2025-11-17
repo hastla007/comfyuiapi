@@ -1,4 +1,5 @@
 import React, { useEffect, useState } from 'react';
+import { API_URL } from '../config';
 import './ApiDocsPage.css';
 
 function ApiDocsPage() {
@@ -9,15 +10,24 @@ function ApiDocsPage() {
 
   useEffect(() => {
     const loadDocs = async () => {
-      try {
-        const response = await fetch(`${process.env.PUBLIC_URL || ''}/api_documentation.md`);
-        if (!response.ok) {
-          throw new Error(`Failed to fetch documentation: ${response.status}`);
+      const sources = [
+        `${API_URL}/documentation`,
+        `${process.env.PUBLIC_URL || ''}/api_documentation.md`,
+      ];
+
+      for (const source of sources) {
+        try {
+          const response = await fetch(source);
+          if (!response.ok) {
+            throw new Error(`Failed to fetch documentation: ${response.status}`);
+          }
+          const text = await response.text();
+          setDocText(text);
+          setLoadError('');
+          return;
+        } catch (error) {
+          setLoadError(error.message || 'Unable to load documentation');
         }
-        const text = await response.text();
-        setDocText(text);
-      } catch (error) {
-        setLoadError(error.message || 'Unable to load documentation');
       }
     };
 

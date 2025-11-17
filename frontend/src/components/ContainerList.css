@@ -189,6 +189,33 @@
   background: #dc2626;
 }
 
+/* Ensure container action buttons retain their colors even when other global
+   .btn rules are loaded later in the bundle */
+.container-card .btn-primary {
+  background: #667eea;
+  color: white;
+}
+
+.container-card .btn-secondary {
+  background: #6b7280;
+  color: white;
+}
+
+.container-card .btn-success {
+  background: #10b981;
+  color: white;
+}
+
+.container-card .btn-warning {
+  background: #f59e0b;
+  color: white;
+}
+
+.container-card .btn-danger {
+  background: #ef4444;
+  color: white;
+}
+
 /* Modal Styles */
 .modal-overlay {
   position: fixed;

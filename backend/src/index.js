@@ -25,6 +25,7 @@ const storageRoutes = require('./routes/storage');
 const gpuRoutes = require('./routes/gpu');
 const notificationsRoutes = require('./routes/notifications');
 const modelsRoutes = require('./routes/models');
+const docsRoutes = require('./routes/docs');
 const { initDatabase } = require('./database');
 const { testDockerConnection, ensureNetwork } = require('./docker');
 const { scanAndImportWorkflows } = require('./services/workflowScanner');
@@ -138,6 +139,9 @@ app.use('/api/gpu', gpuRoutes);
 
 // Models listing
 app.use('/api/models', modelsRoutes);
+
+// Documentation
+app.use('/api/documentation', docsRoutes);
 
 // Admin API Routes
 app.use('/api/admin/api-keys', apiKeysRoutes);
