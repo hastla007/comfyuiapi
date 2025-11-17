@@ -1,5 +1,6 @@
 const { Pool } = require('pg');
 const logger = require('./utils/logger');
+const { runMigrations } = require('./migrations/runMigrations');
 
 const pool = new Pool({
   host: process.env.DB_HOST || 'db',
@@ -23,28 +24,6 @@ pool.on('error', (err) => {
   logger.error('Unexpected database pool error:', err);
   // Don't exit the process, just log the error
 });
-
-async function runMigrations() {
-  const fs = require('fs').promises;
-  const path = require('path');
-
-  const client = await pool.connect();
-  try {
-    logger.info('Running database migrations...');
-
-    const migrationPath = path.join(__dirname, 'migrations', 'comprehensive-features.sql');
-    const migrationSQL = await fs.readFile(migrationPath, 'utf-8');
-
-    await client.query(migrationSQL);
-
-    logger.info('✅ Database migrations completed successfully');
-  } catch (error) {
-    logger.warn('Migration error (might already be applied):', error.message);
-    // Don't throw - migrations might have already been run
-  } finally {
-    client.release();
-  }
-}
 
 async function initDatabase() {
   const client = await pool.connect();
@@ -175,7 +154,7 @@ async function initDatabase() {
   }
 
   // Run migrations
-  await runMigrations();
+  await runMigrations(pool);
 }
 
 module.exports = { pool, initDatabase };

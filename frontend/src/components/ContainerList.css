@@ -103,6 +103,22 @@
   font-family: monospace;
 }
 
+.stats-row {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.5rem;
+  margin-top: 0.5rem;
+}
+
+.stat-pill {
+  background: #111827;
+  border: 1px solid #1f2937;
+  color: #e5e7eb;
+  padding: 0.35rem 0.6rem;
+  border-radius: 8px;
+  font-size: 0.85rem;
+}
+
 .container-actions {
   display: flex;
   gap: 0.5rem;

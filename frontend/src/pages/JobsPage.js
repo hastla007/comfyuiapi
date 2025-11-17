@@ -1,9 +1,10 @@
 import React, { useState, useEffect } from 'react';
 import axios from 'axios';
 import { BarChart, Bar, LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer, PieChart, Pie, Cell } from 'recharts';
-import { RefreshCw, Filter, Download, Search } from 'lucide-react';
+import { RefreshCw, Download, Search, XCircle } from 'lucide-react';
 import { format } from 'date-fns';
 import { API_URL } from '../config';
+import extractErrorMessage from '../utils/errorMessage';
 import './JobsPage.css';
 
 function JobsPage() {
@@ -14,6 +15,9 @@ function JobsPage() {
   const [statusFilter, setStatusFilter] = useState('all');
   const [searchTerm, setSearchTerm] = useState('');
   const [dateRange, setDateRange] = useState('7'); // days
+  const [selectedJobs, setSelectedJobs] = useState(new Set());
+  const [actionMessage, setActionMessage] = useState(null);
+  const [actionState, setActionState] = useState('idle');
 
   useEffect(() => {
     fetchJobs();
@@ -22,6 +26,15 @@ function JobsPage() {
   useEffect(() => {
     filterJobs();
   }, [jobs, statusFilter, searchTerm]);
+
+  useEffect(() => {
+    if (selectedJobs.size === 0) return;
+    const ids = new Set(filteredJobs.map((job) => job.id));
+    const pruned = new Set([...selectedJobs].filter((id) => ids.has(id)));
+    if (pruned.size !== selectedJobs.size) {
+      setSelectedJobs(pruned);
+    }
+  }, [filteredJobs, selectedJobs]);
 
   const fetchJobs = async () => {
     try {
@@ -55,6 +68,62 @@ function JobsPage() {
     }
 
     setFilteredJobs(filtered);
+  };
+
+  const toggleJobSelection = (jobId) => {
+    setSelectedJobs((prev) => {
+      const next = new Set(prev);
+      if (next.has(jobId)) {
+        next.delete(jobId);
+      } else {
+        next.add(jobId);
+      }
+      return next;
+    });
+  };
+
+  const toggleSelectAll = () => {
+    if (selectedJobs.size === filteredJobs.length) {
+      setSelectedJobs(new Set());
+    } else {
+      setSelectedJobs(new Set(filteredJobs.map((job) => job.id)));
+    }
+  };
+
+  const cancelSelectedJobs = async () => {
+    const cancellable = filteredJobs.filter(
+      (job) => selectedJobs.has(job.id) && ['queued', 'processing'].includes(job.status)
+    );
+
+    if (cancellable.length === 0) {
+      setActionMessage({ type: 'error', text: 'Select queued or processing jobs to cancel.' });
+      return;
+    }
+
+    try {
+      setActionState('pending');
+      const response = await axios.post(`${API_URL}/jobs/cancel/bulk`, {
+        ids: cancellable.map((job) => job.id)
+      });
+
+      const cancelledCount = response.data.cancelled?.length || 0;
+      const missingCount = response.data.skipped?.missing?.length || 0;
+      const notCancellableCount = response.data.skipped?.notCancellable?.length || 0;
+
+      setActionMessage({
+        type: 'success',
+        text: `Cancelled ${cancelledCount} job(s). ${missingCount + notCancellableCount > 0 ? `${missingCount} missing, ${notCancellableCount} not cancellable.` : ''}`.trim()
+      });
+      setSelectedJobs(new Set());
+      fetchJobs();
+    } catch (error) {
+      setActionMessage({
+        type: 'error',
+        text: extractErrorMessage(error, 'Failed to cancel jobs')
+      });
+    } finally {
+      setActionState('idle');
+    }
   };
 
   const exportToCSV = () => {
@@ -225,11 +294,23 @@ function JobsPage() {
               <option value="pending">Pending</option>
               <option value="cancelled">Cancelled</option>
             </select>
+            <button
+              className="btn-cancel"
+              onClick={cancelSelectedJobs}
+              disabled={selectedJobs.size === 0 || actionState === 'pending'}
+              aria-label="Cancel selected jobs"
+            >
+              <XCircle size={16} /> Cancel
+            </button>
             <button onClick={exportToCSV} className="btn-export">
               <Download size={16} /> Export CSV
             </button>
           </div>
         </div>
+
+        {actionMessage && (
+          <div className={`jobs-alert ${actionMessage.type}`}>{actionMessage.text}</div>
+        )}
 
         {loading ? (
           <div className="loading">Loading jobs...</div>
@@ -240,6 +321,14 @@ function JobsPage() {
             <table className="jobs-table">
               <thead>
                 <tr>
+                  <th>
+                    <input
+                      type="checkbox"
+                      checked={selectedJobs.size === filteredJobs.length && filteredJobs.length > 0}
+                      onChange={toggleSelectAll}
+                      aria-label="Select all jobs"
+                    />
+                  </th>
                   <th>ID</th>
                   <th>Workflow</th>
                   <th>Container</th>
@@ -252,6 +341,14 @@ function JobsPage() {
               <tbody>
                 {filteredJobs.map((job) => (
                   <tr key={job.id}>
+                    <td>
+                      <input
+                        type="checkbox"
+                        checked={selectedJobs.has(job.id)}
+                        onChange={() => toggleJobSelection(job.id)}
+                        aria-label={`Select job ${job.id}`}
+                      />
+                    </td>
                     <td className="job-id">#{job.id}</td>
                     <td>{job.workflow_name || 'N/A'}</td>
                     <td>{job.container_name || 'N/A'}</td>
